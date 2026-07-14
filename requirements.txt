@@ -1,0 +1,8 @@
+flask>=3.0
+
+# Linux/Mac 生产服务器
+gunicorn>=21.0
+gevent>=24.0
+
+# Windows 生产服务器（Gunicorn 不兼容 Windows）
+waitress>=3.0
