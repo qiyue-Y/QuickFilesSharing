@@ -151,7 +151,8 @@ def upload_file():
         file = request.files['file']
         username = request.form.get('username', 'default')
         
-        if file.filename == '':
+        original_filename = file.filename
+        if not original_filename:
             return jsonify({"success": False, "error": "文件名为空"})
         
         # 通过 Content-Length 请求头快速预估文件大小
@@ -169,7 +170,6 @@ def upload_file():
                 return jsonify({"success": False, "error": "磁盘空间不足"})
         
         # 保留原始文件名，处理重名情况
-        original_filename = file.filename
         user_dir = get_user_files_dir(username)
         
         # 如果文件已存在，添加时间戳避免覆盖
@@ -401,13 +401,24 @@ def run_prod_server(ip):
             )
 
             # 设置 socket 选项：增大缓冲 + 禁用 Nagle
-            server.socket.setsockopt(sock_mod.SOL_SOCKET, sock_mod.SO_SNDBUF, SOCKET_SEND_BUF)
-            server.socket.setsockopt(sock_mod.SOL_SOCKET, sock_mod.SO_RCVBUF, SOCKET_RECV_BUF)
-            server.socket.setsockopt(sock_mod.IPPROTO_TCP, sock_mod.TCP_NODELAY, 1)
-            try:
-                server.socket.setsockopt(sock_mod.IPPROTO_TCP, 12, 1)  # TCP_QUICKACK
-            except Exception:
-                pass
+            # create_server 单 socket 时返回 TcpWSGIServer（有 .socket），
+            # 多 socket 时返回 MultiSocketServer（无 .socket，底层 socket 在 .map 中），需兼容两者
+            primary_sock = getattr(server, "socket", None)
+            if primary_sock is not None:
+                listen_sockets = [primary_sock]
+            else:
+                server_map = getattr(server, "map", None) or {}
+                listen_sockets = [getattr(s, "socket", None) for s in server_map.values()]
+            for sock in listen_sockets:
+                if sock is None:
+                    continue
+                sock.setsockopt(sock_mod.SOL_SOCKET, sock_mod.SO_SNDBUF, SOCKET_SEND_BUF)
+                sock.setsockopt(sock_mod.SOL_SOCKET, sock_mod.SO_RCVBUF, SOCKET_RECV_BUF)
+                sock.setsockopt(sock_mod.IPPROTO_TCP, sock_mod.TCP_NODELAY, 1)
+                try:
+                    sock.setsockopt(sock_mod.IPPROTO_TCP, 12, 1)  # TCP_QUICKACK (Linux)
+                except OSError:
+                    pass
 
             print("  [Waitress] 正在监听 http://0.0.0.0:5000 ...")
             server.run()
