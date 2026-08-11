@@ -13,6 +13,7 @@ import os
 import time
 import shutil
 import glob
+from urllib.parse import quote
 
 app = Flask(__name__)
 # 30GB 最大上传大小 (30 * 1024^3 字节)
@@ -304,7 +305,11 @@ def download_chunk():
     resp.headers['Content-Range'] = f'bytes {start}-{end}/{file_size}'
     resp.headers['Content-Length'] = str(length)
     resp.headers['Accept-Ranges'] = 'bytes'
-    resp.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+    # RFC 5987：中文等非 ASCII 文件名需百分号编码进 filename*，否则 HTTP 头用 latin-1 编码会崩
+    ascii_fallback = filename.encode("ascii", "ignore").decode("ascii") or "download"
+    resp.headers['Content-Disposition'] = (
+        f"attachment; filename=\"{ascii_fallback}\"; filename*=UTF-8''{quote(filename)}"
+    )
     return resp
 
 
