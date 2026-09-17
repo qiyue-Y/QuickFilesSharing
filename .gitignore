@@ -12,3 +12,6 @@ wheels/
 # Data directories (user uploads / clipboards)
 clipboards/
 files/
+
+# Runtime logs
+logs/
