@@ -492,6 +492,7 @@
                             <div class="progress-fill" id="progressFill"></div>
                         </div>
                         <div class="progress-info" id="progressInfo"></div>
+                        <button class="btn btn-ghost" id="cancelTransferBtn" onclick="cancelTransfer()" style="display:none; margin-top:8px; padding:5px 14px; font-size:12px;">取消传输</button>
                     </div>
                     <div class="upload-status" id="uploadStatus"></div>
                 </div>
@@ -531,7 +532,9 @@
 
     <script>
         let currentUsername = null;
-        let uploadXhrs = [];      // 当前上传的所有 XHR（用于中止/引用）
+        let transferXhrs = [];   // 当前传输（上传/下载）的所有 XHR（用于取消）
+        let transferCancelled = false;
+        let activeTransferId = null; // 进行中的上传 file_id（取消时通知后端清分片）
         let progressTimer = null;// UI 刷新计时器
         const STORAGE_KEY = 'clipboard_last_user';
 
@@ -593,6 +596,25 @@
             status.textContent = msg;
             status.className = `status ${type}`;
             setTimeout(() => status.className = 'status', 3000);
+        }
+
+        // === 传输取消 ===
+        function setCancelVisible(show) {
+            document.getElementById('cancelTransferBtn').style.display = show ? 'inline-block' : 'none';
+        }
+
+        function cancelTransfer() {
+            if (transferCancelled) return;
+            transferCancelled = true;
+            transferXhrs.forEach(x => { try { x.abort(); } catch (e) {} });
+            if (activeTransferId) {
+                // 通知后端丢弃已上传的分片
+                fetch('/api/upload/abort', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username: currentUsername, file_id: activeTransferId})
+                }).catch(() => {});
+            }
         }
 
         // === 分片并行传输配置 ===
@@ -710,12 +732,16 @@
                     results.push({ success: true, name: finalName || file.name });
                 } catch (err) {
                     results.push({ success: false, name: file.name, error: err.message });
+                    if (transferCancelled) break;
                 }
             }
 
             const successCount = results.filter(item => item.success).length;
             const failCount = results.length - successCount;
-            if (failCount === 0) {
+            if (transferCancelled) {
+                uploadStatus.textContent = '批量上传已取消';
+                uploadStatus.style.cssText = 'color:#92400e;background:#fef3c7;padding:10px;border-radius:8px;display:block;';
+            } else if (failCount === 0) {
                 uploadStatus.textContent = `批量上传完成：成功 ${successCount} 个文件`;
                 uploadStatus.style.cssText = 'color:#166534;background:#dcfce7;padding:10px;border-radius:8px;display:block;';
             } else {
@@ -724,6 +750,7 @@
             }
 
             document.getElementById('fileInput').value = '';
+            setCancelVisible(false);
             loadFiles();
             setTimeout(() => {
                 uploadStatus.style.cssText = '';
@@ -749,6 +776,10 @@
                 return;
             }
 
+            transferXhrs = [];
+            transferCancelled = false;
+            setCancelVisible(true);
+
             return new Promise((resolve, reject) => {
                 uploadStatus.style.cssText = '';
                 uploadStatus.textContent = '';
@@ -758,6 +789,7 @@
 
                 const totalChunks = Math.max(1, Math.ceil(file.size / CHUNK_SIZE));
                 const fileId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+                activeTransferId = fileId;
                 const ui = makeProgressUI(file.size, totalChunks);
                 const batchPrefix = batchMeta && batchMeta.batchTotal > 1
                     ? `第 ${batchMeta.batchIndex}/${batchMeta.batchTotal} 个文件<br>`
@@ -785,7 +817,7 @@
                         formData.append('total_chunks', totalChunks);
 
                         const xhr = new XMLHttpRequest();
-                        uploadXhrs.push(xhr);
+                        transferXhrs.push(xhr);
 
                         xhr.upload.addEventListener('progress', function(e) {
                             if (e.lengthComputable) {
@@ -806,6 +838,7 @@
                             } else { chunkReject(new Error('HTTP ' + xhr.status)); }
                         });
                         xhr.addEventListener('error', () => chunkReject(new Error('网络错误')));
+                        xhr.addEventListener('abort', () => chunkReject(new Error('已取消')));
                         xhr.open('POST', '/api/upload/chunk');
                         xhr.send(formData);
                     });
@@ -820,6 +853,7 @@
                         while (queue.length > 0 && !fatal) {
                             const idx = queue.shift();
                             const p = uploadChunk(idx).catch(err => {
+                                if (transferCancelled) throw err;
                                 console.error(`分片 ${idx} 失败:`, err.message);
                                 return uploadChunk(idx).catch(() => { fatal = true; throw new Error(`分片 ${idx} 重试失败`); });
                             });
@@ -857,7 +891,9 @@
                     progressBar.classList.remove('active');
                     progressInfo.classList.remove('active');
                     document.getElementById('fileInput').disabled = false;
-                    uploadXhrs = [];
+                    transferXhrs = [];
+                    activeTransferId = null;
+                    setCancelVisible(false);
                     if (data.success) {
                         const hashNote = data.sha256 ? `（SHA-256: ${data.sha256.slice(0, 12)}…）` : '';
                         uploadStatus.textContent = (batchMeta && batchMeta.batchTotal > 1
@@ -875,8 +911,10 @@
                     progressBar.classList.remove('active');
                     progressInfo.classList.remove('active');
                     document.getElementById('fileInput').disabled = false;
-                    uploadXhrs = [];
-                    uploadStatus.textContent = '上传失败：' + err.message;
+                    transferXhrs = [];
+                    activeTransferId = null;
+                    setCancelVisible(false);
+                    uploadStatus.textContent = transferCancelled ? '上传已取消' : '上传失败：' + err.message;
                     uploadStatus.style.cssText = 'color:#991b1b;background:#fee2e2;padding:10px;border-radius:8px;display:block;';
                     reject(err);
                 });
@@ -994,26 +1032,36 @@
                         return;
                     }
                     fileList.innerHTML = data.files.map(f => {
-                        const safe = f.name.replace(/'/g, "\\'");
+                        const name = escapeHtml(f.name);
                         const hashLine = f.sha256
-                            ? `<div class="file-hash" title="点击查看校验码与命令行下载" onclick="openHashModal('${safe}')">SHA-256: ${f.sha256.slice(0, 12)}…</div>`
-                            : `<div class="file-hash" title="点击计算校验码，并可获取命令行下载" onclick="openHashModal('${safe}')">校验码未记录，点击计算</div>`;
+                            ? `<div class="file-hash" title="点击查看校验码与命令行下载">SHA-256: ${f.sha256.slice(0, 12)}…</div>`
+                            : `<div class="file-hash" title="点击计算校验码，并可获取命令行下载">校验码未记录，点击计算</div>`;
                         return `
-                        <div class="file-item">
+                        <div class="file-item" data-filename="${name}">
                             <span class="file-icon">${fileIcon(f.name)}</span>
                             <div class="file-meta">
-                                <div class="file-name" title="${f.name}">${f.name}</div>
+                                <div class="file-name" title="${name}">${name}</div>
                                 <div class="file-size">${formatSize(f.size)}</div>
                                 ${hashLine}
                             </div>
                             <div class="file-actions">
-                                <button class="download-btn" onclick="downloadFile('${safe}')">下载</button>
-                                <button class="delete-btn" onclick="deleteFile('${safe}')">删除</button>
+                                <button class="download-btn">下载</button>
+                                <button class="delete-btn">删除</button>
                             </div>
                         </div>`;
                     }).join('');
                 });
         }
+
+        // 文件列表事件委托：文件名经 data-* 属性传递，不再拼进 onclick 字符串（防注入/属性截断）
+        document.getElementById('fileList').addEventListener('click', e => {
+            const item = e.target.closest('.file-item');
+            if (!item) return;
+            const filename = item.dataset.filename;
+            if (e.target.closest('.download-btn')) downloadFile(filename);
+            else if (e.target.closest('.delete-btn')) deleteFile(filename);
+            else if (e.target.closest('.file-hash')) openHashModal(filename);
+        });
 
         // ========== 分片并行下载 ==========
         function nativeDownload(filename, size) {
@@ -1051,6 +1099,10 @@
                         return;
                     }
 
+                    transferXhrs = [];
+                    transferCancelled = false;
+                    setCancelVisible(true);
+
                     progressFill.style.width = '0%';
                     progressBar.classList.add('active');
                     progressInfo.classList.add('active');
@@ -1068,6 +1120,7 @@
                             const chunkSize = end - start + 1;
 
                             const xhr = new XMLHttpRequest();
+                            transferXhrs.push(xhr);
                             xhr.responseType = 'arraybuffer';
                             xhr.addEventListener('progress', function(e) {
                                 if (e.lengthComputable) ui.chunkProgress[chunkIndex] = e.loaded;
@@ -1080,6 +1133,7 @@
                                 } else reject(new Error(`HTTP ${xhr.status}`));
                             });
                             xhr.addEventListener('error', () => reject(new Error('网络错误')));
+                            xhr.addEventListener('abort', () => reject(new Error('已取消')));
                             xhr.open('GET', `/api/download/chunk?username=${currentUsername}&filename=${encodeURIComponent(filename)}`);
                             xhr.setRequestHeader('Range', `bytes=${start}-${end}`);
                             xhr.send();
@@ -1092,7 +1146,10 @@
                         async function processNext() {
                             while (queue.length > 0) {
                                 const idx = queue.shift();
-                                const p = downloadChunk(idx).catch(() => downloadChunk(idx));
+                                const p = downloadChunk(idx).catch(err => {
+                                    if (transferCancelled) throw err;
+                                    return downloadChunk(idx);
+                                });
                                 inFlight.add(p);
                                 p.finally(() => inFlight.delete(p));
                                 if (inFlight.size >= PARALLEL_STREAMS) await Promise.race(inFlight);
@@ -1114,6 +1171,7 @@
                         progressFill.style.width = '100%';
                         progressBar.classList.remove('active');
                         progressInfo.classList.remove('active');
+                        setCancelVisible(false);
                         uploadStatus.textContent = '下载完成！';
                         uploadStatus.style.cssText = 'color:#166534;background:#dcfce7;padding:10px;border-radius:8px;display:block;';
 
@@ -1129,7 +1187,9 @@
                         stopTimer();
                         progressBar.classList.remove('active');
                         progressInfo.classList.remove('active');
-                        uploadStatus.textContent = '下载失败：' + err.message;
+                        transferXhrs = [];
+                        setCancelVisible(false);
+                        uploadStatus.textContent = transferCancelled ? '下载已取消' : '下载失败：' + err.message;
                         uploadStatus.style.cssText = 'color:#991b1b;background:#fee2e2;padding:10px;border-radius:8px;display:block;';
                     });
                 })
@@ -1137,7 +1197,9 @@
                     stopTimer();
                     progressBar.classList.remove('active');
                     progressInfo.classList.remove('active');
-                    uploadStatus.textContent = '下载失败：' + err.message;
+                    transferXhrs = [];
+                    setCancelVisible(false);
+                    uploadStatus.textContent = transferCancelled ? '下载已取消' : '下载失败：' + err.message;
                     uploadStatus.style.cssText = 'color:#991b1b;background:#fee2e2;padding:10px;border-radius:8px;display:block;';
                 });
         }
