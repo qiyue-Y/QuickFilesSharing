@@ -15,3 +15,6 @@ files/
 
 # Runtime logs
 logs/
+
+# Agent workspace
+.claude/
