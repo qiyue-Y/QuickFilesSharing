@@ -39,10 +39,12 @@ HASH_ALGO = "sha256"                # 校验算法，同时作为接口字段名
 HASHES_FILE = ".hashes.json"        # 每个用户目录下的哈希记录
 _hash_lock = threading.Lock()       # 保护哈希记录的读改写
 
-# 存储目录
-CLIPBOARD_DIR = "clipboards"
-FILES_DIR = "files"
-LOG_DIR = "logs"
+# 存储目录：锚定到 py 文件所在目录。send_from_directory 以 app.root_path（即本文件位置）为基准，
+# 其余接口若跟随进程 CWD，从其他目录启动服务时两边会分裂（列表有文件、下载 404），故统一锚定
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CLIPBOARD_DIR = os.path.join(_BASE_DIR, "clipboards")
+FILES_DIR = os.path.join(_BASE_DIR, "files")
+LOG_DIR = os.path.join(_BASE_DIR, "logs")
 LOG_FILE = os.path.join(LOG_DIR, "app.log")
 for _d in (CLIPBOARD_DIR, FILES_DIR, LOG_DIR):
     if not os.path.exists(_d):
