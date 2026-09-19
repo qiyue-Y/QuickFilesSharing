@@ -26,7 +26,8 @@ Linux 服务器：`gunicorn -c gunicorn.conf.py http_messages_share:app`
 | `clipboards/` | 各用户剪切板文本（`<用户名>.txt`） |
 | `files/<用户名>/` | 上传的文件；`.chunks/` 为分片临时目录（24h 自动清扫） |
 | `logs/app.log` | 运行日志（20MB × 5 滚动） |
-| `review-issues.md` | 已知问题与改进清单 |
+| `review-issues.md` | 待实施的问题清单（问题 / 解决方案 / 重要性 / 影响评估） |
+| `docs/YYYY-MM-DD.md` | 按日期归档的改动记录（问题 / 原因 / 解决方法 / 日期，含实测验证） |
 
 ## 注意事项
 
