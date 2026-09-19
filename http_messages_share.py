@@ -129,13 +129,6 @@ def get_user_files_dir(username):
     return user_dir
 
 
-def check_disk_space(username, required_bytes):
-    """检查磁盘空间是否足够"""
-    user_dir = get_user_files_dir(username)
-    stat = shutil.disk_usage(user_dir)
-    return stat.free >= required_bytes
-
-
 def get_chunk_dir(username, file_id):
     """获取分片临时目录"""
     chunk_dir = os.path.join(FILES_DIR, username, ".chunks", file_id)
@@ -431,7 +424,9 @@ def _request_end(resp):
     content_length = resp.headers.get("Content-Length")
     size_text = human_size(int(content_length)) if content_length else "-"
     byte_range = request.headers.get("Range")
-    log.info(
+    # 分片级请求量大（30GB ≈ 960 条），降为 DEBUG；关键事件（完成/合并/中断）仍为 INFO
+    log_fn = log.debug if request.path in ("/api/upload/chunk", "/api/download/chunk") else log.info
+    log_fn(
         "%s %s %s -> %s %s %.2fs%s",
         request.remote_addr,
         request.method,
@@ -451,7 +446,7 @@ def _uncaught_error(e):
         log.warning("HTTP %s: %s %s", e.code, request.method, request.full_path.rstrip("?"))
         return e
     log.exception("未捕获异常: %s %s", request.method, request.full_path.rstrip("?"))
-    return jsonify({"success": False, "error": str(e)}), 500
+    return jsonify({"success": False, "error": "服务器内部错误，详情见服务端日志"}), 500
 
 
 @app.route('/')
@@ -480,64 +475,6 @@ def post_clipboard():
     content = data.get('content', '')
     write_clipboard(username, content)
     return jsonify({"success": True})
-
-
-@app.route('/api/upload', methods=['POST'])
-def upload_file():
-    """上传文件（支持最大30GB，高效流式写入磁盘，内存占用恒定）"""
-    try:
-        started = time.monotonic()
-        if 'file' not in request.files:
-            return jsonify({"success": False, "error": "没有文件"})
-        
-        file = request.files['file']
-        username = normalize_username(request.form.get('username', 'default'))
-        if username is None:
-            return bad_request("用户名不合法")
-
-        original_filename = safe_filename(file.filename)
-        if not original_filename:
-            return bad_request("文件名不合法")
-        
-        # 通过 Content-Length 请求头快速预估文件大小
-        content_length = request.content_length
-        if content_length is not None:
-            # Content-Length 包含整个 multipart body，取 1.2 倍作为安全空间估算
-            if not check_disk_space(username, int(content_length * 1.2)):
-                log.warning("上传被拒(磁盘不足): user=%s file=%s body=%s", username, original_filename, human_size(content_length))
-                return jsonify({"success": False, "error": "磁盘空间不足"})
-        else:
-            # 无法获取 Content-Length 时，尝试从文件流尾部获取大小
-            file.seek(0, 2)
-            file_size = file.tell()
-            file.seek(0)
-            if not check_disk_space(username, int(file_size * 1.1)):
-                log.warning("上传被拒(磁盘不足): user=%s file=%s size=%s", username, original_filename, human_size(file_size))
-                return jsonify({"success": False, "error": "磁盘空间不足"})
-        
-        # 保留原始文件名；重名时独占创建新路径，绝不覆盖已有文件
-        user_dir = get_user_files_dir(username)
-        file_path = exclusive_path(user_dir, original_filename)
-        original_filename = os.path.basename(file_path)
-
-        # 使用 shutil.copyfileobj 进行高效流式写入（16MB 缓冲区，减少系统调用）
-        # Werkzeug 已将上传数据流式写入临时文件，这里从临时文件流式复制到目标位置
-        chunk_size = 16 * 1024 * 1024  # 16MB per chunk，适合大文件传输
-        hasher = hashlib.new(HASH_ALGO)
-        with open(file_path, 'xb') as dst:
-            shutil.copyfileobj(file.stream, HashingWriter(dst, hasher), chunk_size)
-        
-        written = os.path.getsize(file_path)
-        digest = hasher.hexdigest()
-        record_hash(user_dir, original_filename, digest)
-        log.info(
-            "上传完成: user=%s file=%s size=%s %s=%s 耗时=%.2fs",
-            username, original_filename, human_size(written), HASH_ALGO, digest, time.monotonic() - started
-        )
-        return jsonify({"success": True, "filename": original_filename, HASH_ALGO: digest})
-    except Exception as e:
-        log.exception("上传失败: %s %s", request.method, request.full_path.rstrip("?"))
-        return jsonify({"success": False, "error": str(e)})
 
 
 @app.route('/api/file/info', methods=['GET'])
@@ -593,31 +530,38 @@ def file_hash():
 
 @app.route('/api/upload/chunk', methods=['POST'])
 def upload_chunk():
-    """接收单个分片"""
+    """接收单个分片。裸 body 直写磁盘：不解析 multipart、不落临时文件，
+    每字节省一次临时文件写+读（实测 multipart 路径分片阶段仅 ~102MB/s）"""
     try:
-        if 'chunk' not in request.files:
-            return jsonify({"success": False, "error": "没有分片数据"})
-
-        chunk_file = request.files['chunk']
-        username = normalize_username(request.form.get('username', 'default'))
-        file_id = request.form.get('file_id', '')
-        chunk_index = request.form.get('chunk_index', '0')
-        total_chunks = request.form.get('total_chunks', '1')
+        # username 走 query（可能含中文，请求头只允许 latin-1）；file_id/index 为 ASCII 走头
+        username = normalize_username(request.args.get('username', 'default'))
+        file_id = request.headers.get('X-File-Id', '')
+        chunk_index = request.headers.get('X-Chunk-Index', '0')
 
         if username is None or not _FILE_ID_RE.match(file_id or ''):
             return bad_request("参数不合法")
+        try:
+            idx = int(chunk_index)
+            if idx < 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            return bad_request("chunk_index 不合法")
 
         chunk_dir = get_chunk_dir(username, file_id)
-        chunk_path = os.path.join(chunk_dir, f"chunk_{int(chunk_index):06d}")
+        chunk_path = os.path.join(chunk_dir, f"chunk_{idx:06d}")
 
-        # 流式写入分片
+        # 直接从请求流写盘
         with open(chunk_path, 'wb') as dst:
-            shutil.copyfileobj(chunk_file.stream, dst, STREAM_CHUNK)
+            while True:
+                buf = request.stream.read(STREAM_CHUNK)
+                if not buf:
+                    break
+                dst.write(buf)
 
-        return jsonify({"success": True, "chunk_index": int(chunk_index)})
-    except Exception as e:
+        return jsonify({"success": True, "chunk_index": idx})
+    except Exception:
         log.exception("分片上传失败: %s", request.full_path.rstrip("?"))
-        return jsonify({"success": False, "error": str(e)})
+        return jsonify({"success": False, "error": "分片写入失败，详情见服务端日志"})
 
 
 @app.route('/api/upload/merge', methods=['POST'])
@@ -702,12 +646,28 @@ def download_chunk():
         resp.headers['Accept-Ranges'] = 'bytes'
         return resp
 
-    # 解析 Range: bytes=start-end
-    byte_range = range_header.replace('bytes=', '').split('-')
-    start = int(byte_range[0]) if byte_range[0] else 0
-    end = int(byte_range[1]) if len(byte_range) > 1 and byte_range[1] else file_size - 1
+    # 解析 Range: bytes=start-end；支持 bytes=-N 后缀语义（取末 N 字节），非法一律 416
+    spec = range_header.strip()
+    if not spec.startswith("bytes="):
+        return Response(status=416)
+    try:
+        first, _, last = spec[6:].partition("-")
+        first, last = first.strip(), last.strip()
+        if first == "" and last == "":
+            raise ValueError
+        if first == "":
+            suffix = int(last)
+            if suffix <= 0:
+                raise ValueError
+            start = max(0, file_size - suffix)
+            end = file_size - 1
+        else:
+            start = int(first)
+            end = int(last) if last else file_size - 1
+    except ValueError:
+        return Response(status=416)
 
-    if start >= file_size:
+    if start < 0 or start >= file_size or start > end:
         log.warning(
             "下载越界(416): user=%s file=%s size=%s Range=%s from=%s",
             username, filename, human_size(file_size), range_header, request.remote_addr
