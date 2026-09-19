@@ -882,7 +882,8 @@
                         body: JSON.stringify({
                             username: currentUsername,
                             file_id: fileId,
-                            filename: file.name
+                            filename: file.name,
+                            total_chunks: totalChunks
                         })
                     }).then(r => r.json());
                 }).then(data => {
