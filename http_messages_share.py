@@ -15,6 +15,7 @@ from werkzeug.exceptions import HTTPException
 import hashlib
 import json
 import logging
+import re
 import sys
 import os
 import time
@@ -38,6 +39,10 @@ SOCKET_RECV_BUF = 4 * 1024 * 1024   # Socket 接收缓冲：4MB
 HASH_ALGO = "sha256"                # 校验算法，同时作为接口字段名
 HASHES_FILE = ".hashes.json"        # 每个用户目录下的哈希记录
 _hash_lock = threading.Lock()       # 保护哈希记录的读改写
+
+# 输入校验：username/filename/file_id 直接拼进存储路径，必须挡住路径穿越
+_USERNAME_RE = re.compile(r"^[\w-]{1,64}$")   # \w 含中文等 Unicode 字母数字
+_FILE_ID_RE = re.compile(r"^[A-Za-z0-9]{1,64}$")
 
 # 存储目录：锚定到 py 文件所在目录。send_from_directory 以 app.root_path（即本文件位置）为基准，
 # 其余接口若跟随进程 CWD，从其他目录启动服务时两边会分裂（列表有文件、下载 404），故统一锚定
@@ -80,6 +85,30 @@ def setup_logging():
 
 
 setup_logging()
+
+
+def normalize_username(username):
+    """用户名同时用作存储目录名，先校验再用；非法返回 None，空白回退 default"""
+    if not username or not str(username).strip():
+        return "default"
+    username = str(username).strip()
+    return username if _USERNAME_RE.match(username) else None
+
+
+def safe_filename(filename):
+    """文件名校验：拒绝路径分隔符、..、隐藏文件（含 .hashes.json）；非法返回 None"""
+    if not filename:
+        return None
+    filename = str(filename).strip()
+    if not filename or filename in (".", ".."):
+        return None
+    if "/" in filename or "\\" in filename or filename.startswith("."):
+        return None
+    return filename
+
+
+def bad_request(error):
+    return jsonify({"success": False, "error": error}), 400
 
 
 def get_clipboard_path(username):
@@ -142,11 +171,20 @@ def merge_chunks(username, file_id, original_filename):
 
     # 合并时顺带算出整文件哈希，不用再读一遍磁盘
     hasher = hashlib.new(HASH_ALGO)
-    with open(file_path, 'wb') as dst:
-        writer = HashingWriter(dst, hasher)
-        for chunk_file in chunk_files:
-            with open(chunk_file, 'rb') as src:
-                shutil.copyfileobj(src, writer, STREAM_CHUNK)
+    try:
+        with open(file_path, 'wb') as dst:
+            writer = HashingWriter(dst, hasher)
+            for chunk_file in chunk_files:
+                with open(chunk_file, 'rb') as src:
+                    shutil.copyfileobj(src, writer, STREAM_CHUNK)
+    except Exception:
+        # 合并失败：清掉半成品与分片，避免留下损坏文件或孤儿分片
+        try:
+            os.remove(file_path)
+        except OSError:
+            pass
+        cleanup_chunks(username, file_id)
+        raise
 
     # 清理分片
     cleanup_chunks(username, file_id)
@@ -312,9 +350,46 @@ def reconcile_hashes():
     )
 
 
+def sweep_stale_chunks(max_age_hours=24):
+    """清理残留的分片目录（上传中断/取消的孤儿）。以目录内最新文件的 mtime 判断，
+    防止误删仍在进行中的上传——活跃上传会持续写入新分片"""
+    if not os.path.isdir(FILES_DIR):
+        return
+    cutoff = time.time() - max_age_hours * 3600
+    removed = 0
+    for username in os.listdir(FILES_DIR):
+        chunks_root = os.path.join(FILES_DIR, username, ".chunks")
+        if not os.path.isdir(chunks_root):
+            continue
+        for file_id in os.listdir(chunks_root):
+            chunk_dir = os.path.join(chunks_root, file_id)
+            if not os.path.isdir(chunk_dir):
+                continue
+            try:
+                entries = os.listdir(chunk_dir)
+                newest = max(
+                    (os.path.getmtime(os.path.join(chunk_dir, n)) for n in entries),
+                    default=os.path.getmtime(chunk_dir)
+                )
+            except OSError:
+                continue
+            if newest < cutoff:
+                shutil.rmtree(chunk_dir, ignore_errors=True)
+                removed += 1
+    if removed:
+        log.info("清理过期分片目录: %d 个 (阈值 %d 小时)", removed, max_age_hours)
+
+
 def start_hash_reconcile():
-    """后台线程对账，不拖慢启动（按大小+修改时间跳过没变的文件，重启基本不耗时）"""
-    threading.Thread(target=reconcile_hashes, name="hash-reconcile", daemon=True).start()
+    """后台线程做启动维护：清扫过期分片 + 校验码对账，不拖慢启动
+    （对账按大小+修改时间跳过没变的文件，重启基本不耗时）"""
+    def _maintenance():
+        try:
+            sweep_stale_chunks()
+        except Exception:
+            log.exception("分片目录清扫失败")
+        reconcile_hashes()
+    threading.Thread(target=_maintenance, name="startup-maintenance", daemon=True).start()
 
 
 def human_size(num_bytes):
@@ -370,7 +445,9 @@ def index():
 @app.route('/api/clipboard', methods=['GET'])
 def get_clipboard():
     """获取剪切板内容"""
-    username = request.args.get('username', 'default')
+    username = normalize_username(request.args.get('username', 'default'))
+    if username is None:
+        return bad_request("用户名不合法")
     content = read_clipboard(username)
     return jsonify({"content": content})
 
@@ -379,7 +456,9 @@ def get_clipboard():
 def post_clipboard():
     """保存剪切板内容"""
     data = request.json
-    username = data.get('username', 'default')
+    username = normalize_username(data.get('username', 'default'))
+    if username is None:
+        return bad_request("用户名不合法")
     content = data.get('content', '')
     write_clipboard(username, content)
     return jsonify({"success": True})
@@ -394,11 +473,13 @@ def upload_file():
             return jsonify({"success": False, "error": "没有文件"})
         
         file = request.files['file']
-        username = request.form.get('username', 'default')
-        
-        original_filename = file.filename
+        username = normalize_username(request.form.get('username', 'default'))
+        if username is None:
+            return bad_request("用户名不合法")
+
+        original_filename = safe_filename(file.filename)
         if not original_filename:
-            return jsonify({"success": False, "error": "文件名为空"})
+            return bad_request("文件名不合法")
         
         # 通过 Content-Length 请求头快速预估文件大小
         content_length = request.content_length
@@ -450,8 +531,10 @@ def upload_file():
 @app.route('/api/file/info', methods=['GET'])
 def file_info():
     """获取文件大小与校验码（用于分片下载规划）"""
-    username = request.args.get('username', 'default')
-    filename = request.args.get('filename', '')
+    username = normalize_username(request.args.get('username', 'default'))
+    filename = safe_filename(request.args.get('filename', ''))
+    if username is None or filename is None:
+        return bad_request("参数不合法")
     user_dir = get_user_files_dir(username)
     file_path = os.path.join(user_dir, filename)
 
@@ -468,8 +551,10 @@ def file_info():
 @app.route('/api/file/hash', methods=['GET'])
 def file_hash():
     """获取文件校验码；没有记录（历史文件）时现算一次并落盘"""
-    username = request.args.get('username', 'default')
-    filename = request.args.get('filename', '')
+    username = normalize_username(request.args.get('username', 'default'))
+    filename = safe_filename(request.args.get('filename', ''))
+    if username is None or filename is None:
+        return bad_request("参数不合法")
     user_dir = get_user_files_dir(username)
     file_path = os.path.join(user_dir, filename)
 
@@ -502,13 +587,13 @@ def upload_chunk():
             return jsonify({"success": False, "error": "没有分片数据"})
 
         chunk_file = request.files['chunk']
-        username = request.form.get('username', 'default')
+        username = normalize_username(request.form.get('username', 'default'))
         file_id = request.form.get('file_id', '')
         chunk_index = request.form.get('chunk_index', '0')
         total_chunks = request.form.get('total_chunks', '1')
 
-        if not file_id:
-            return jsonify({"success": False, "error": "缺少 file_id"})
+        if username is None or not _FILE_ID_RE.match(file_id or ''):
+            return bad_request("参数不合法")
 
         chunk_dir = get_chunk_dir(username, file_id)
         chunk_path = os.path.join(chunk_dir, f"chunk_{int(chunk_index):06d}")
@@ -529,12 +614,12 @@ def upload_merge():
     try:
         started = time.monotonic()
         data = request.json
-        username = data.get('username', 'default')
+        username = normalize_username(data.get('username', 'default'))
         file_id = data.get('file_id', '')
-        original_filename = data.get('filename', 'untitled')
+        original_filename = safe_filename(data.get('filename', 'untitled'))
 
-        if not file_id:
-            return jsonify({"success": False, "error": "缺少 file_id"})
+        if username is None or not original_filename or not _FILE_ID_RE.match(file_id or ''):
+            return bad_request("参数不合法")
 
         log.info("开始合并分片: user=%s file=%s file_id=%s", username, original_filename, file_id)
         user_dir = get_user_files_dir(username)
@@ -551,11 +636,30 @@ def upload_merge():
         return jsonify({"success": False, "error": str(e)})
 
 
+@app.route('/api/upload/abort', methods=['POST'])
+def upload_abort():
+    """取消上传：丢弃该 file_id 的全部分片（前端取消按钮调用）"""
+    try:
+        data = request.json
+        username = normalize_username(data.get('username', 'default'))
+        file_id = data.get('file_id', '')
+        if username is None or not _FILE_ID_RE.match(file_id or ''):
+            return bad_request("参数不合法")
+        cleanup_chunks(username, file_id)
+        log.info("上传已取消，清理分片: user=%s file_id=%s", username, file_id)
+        return jsonify({"success": True})
+    except Exception:
+        log.exception("取消上传清理分片失败: %s", request.full_path.rstrip("?"))
+        return jsonify({"success": False, "error": "清理分片失败"}), 500
+
+
 @app.route('/api/download/chunk', methods=['GET'])
 def download_chunk():
     """支持 Range 的分片下载"""
-    username = request.args.get('username', 'default')
-    filename = request.args.get('filename', '')
+    username = normalize_username(request.args.get('username', 'default'))
+    filename = safe_filename(request.args.get('filename', ''))
+    if username is None or filename is None:
+        return bad_request("参数不合法")
     user_dir = get_user_files_dir(username)
     file_path = os.path.join(user_dir, filename)
 
@@ -633,7 +737,9 @@ def download_chunk():
 @app.route('/api/files', methods=['GET'])
 def list_files():
     """获取用户的文件列表（含文件大小与校验码，排除隐藏文件）"""
-    username = request.args.get('username', 'default')
+    username = normalize_username(request.args.get('username', 'default'))
+    if username is None:
+        return bad_request("用户名不合法")
     user_dir = get_user_files_dir(username)
     records = read_hashes(user_dir)
     result = []
@@ -656,8 +762,10 @@ def list_files():
 @app.route('/api/download', methods=['GET'])
 def download_file():
     """下载文件"""
-    username = request.args.get('username', 'default')
-    filename = request.args.get('filename', '')
+    username = normalize_username(request.args.get('username', 'default'))
+    filename = safe_filename(request.args.get('filename', ''))
+    if username is None or filename is None:
+        return bad_request("参数不合法")
     user_dir = get_user_files_dir(username)
     return send_from_directory(user_dir, filename, as_attachment=True)
 
@@ -667,9 +775,11 @@ def delete_file():
     """删除文件"""
     try:
         data = request.json
-        username = data.get('username', 'default')
-        filename = data.get('filename', '')
-        
+        username = normalize_username(data.get('username', 'default'))
+        filename = safe_filename(data.get('filename', ''))
+        if username is None or filename is None:
+            return bad_request("参数不合法")
+
         user_dir = get_user_files_dir(username)
         file_path = os.path.join(user_dir, filename)
         
