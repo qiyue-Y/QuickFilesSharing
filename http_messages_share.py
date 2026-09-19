@@ -3,7 +3,7 @@
 功能：用户可以登录后查看、保存剪切板内容，以及上传/下载/删除文件
 存储：剪切板存为TXT文件，文件存储在用户目录下
 运行：python http_messages_share.py
-访问：http://localhost:5000
+访问：http://localhost:5000（启动后自动打开浏览器；端口被旧实例占用时会拒绝启动）
 上传限制：最大30GB（支持分片并行上传，跑满带宽）
 下载：支持 Range 分片并行下载
 完整性：每个文件记录 SHA-256（上传/合并时顺带算出），可对比校验
@@ -22,6 +22,7 @@ import time
 import shutil
 import glob
 import threading
+import webbrowser
 from logging.handlers import RotatingFileHandler
 from urllib.parse import quote
 
@@ -150,29 +151,44 @@ def cleanup_chunks(username, file_id):
         shutil.rmtree(chunk_dir)
 
 
-def merge_chunks(username, file_id, original_filename):
-    """按序号合并分片到最终文件，返回 (文件名, 校验码)"""
+def exclusive_path(user_dir, filename):
+    """重名时追加时间戳与序号，返回一个当前不存在的路径。配合 open('x') 独占创建：
+    并发同名也不会互相覆盖——同秒同名只加一层时间戳仍可能撞，循环序号兜底"""
+    candidate = os.path.join(user_dir, filename)
+    if not os.path.exists(candidate):
+        return candidate
+    name, ext = os.path.splitext(filename)
+    base = os.path.join(user_dir, f"{name}_{int(time.time())}")
+    counter = 0
+    while True:
+        candidate = f"{base}{'' if counter == 0 else f'_{counter}'}{ext}"
+        if not os.path.exists(candidate):
+            return candidate
+        counter += 1
+
+
+def merge_chunks(username, file_id, original_filename, total_chunks):
+    """按序号合并分片到最终文件，返回 (文件名, 校验码)。分片不齐全抛 ValueError"""
     chunk_dir = get_chunk_dir(username, file_id)
     user_dir = get_user_files_dir(username)
 
-    # 处理重名
-    final_name = original_filename
-    if os.path.exists(os.path.join(user_dir, final_name)):
-        name, ext = os.path.splitext(original_filename)
-        final_name = f"{name}_{int(time.time())}{ext}"
-
-    file_path = os.path.join(user_dir, final_name)
-
-    # 按序号排序分片并合并
+    # 按序号排序并校验齐全（0..total-1 无缺失）：缺片合并会产出被截断的"完整文件"
     chunk_files = sorted(
         glob.glob(os.path.join(chunk_dir, "*")),
         key=lambda x: int(os.path.basename(x).split("_")[1])
     )
+    indices = [int(os.path.basename(x).split("_")[1]) for x in chunk_files]
+    if indices != list(range(total_chunks)):
+        raise ValueError(f"分片不齐全: 期望 {total_chunks} 片，实收 {len(indices)} 片")
+
+    # 处理重名：独占创建，绝不覆盖已有文件
+    file_path = exclusive_path(user_dir, original_filename)
+    final_name = os.path.basename(file_path)
 
     # 合并时顺带算出整文件哈希，不用再读一遍磁盘
     hasher = hashlib.new(HASH_ALGO)
     try:
-        with open(file_path, 'wb') as dst:
+        with open(file_path, 'xb') as dst:
             writer = HashingWriter(dst, hasher)
             for chunk_file in chunk_files:
                 with open(chunk_file, 'rb') as src:
@@ -201,10 +217,12 @@ def read_clipboard(username):
 
 
 def write_clipboard(username, content):
-    """保存用户剪切板内容"""
+    """保存剪切板内容（临时文件 + 原子替换，防中途崩溃截断原文件）"""
     path = get_clipboard_path(username)
-    with open(path, 'w', encoding='utf-8') as f:
+    tmp_path = path + ".tmp"
+    with open(tmp_path, 'w', encoding='utf-8') as f:
         f.write(content)
+    os.replace(tmp_path, path)
 
 
 class HashingWriter:
@@ -497,22 +515,16 @@ def upload_file():
                 log.warning("上传被拒(磁盘不足): user=%s file=%s size=%s", username, original_filename, human_size(file_size))
                 return jsonify({"success": False, "error": "磁盘空间不足"})
         
-        # 保留原始文件名，处理重名情况
+        # 保留原始文件名；重名时独占创建新路径，绝不覆盖已有文件
         user_dir = get_user_files_dir(username)
-        
-        # 如果文件已存在，添加时间戳避免覆盖
-        if os.path.exists(os.path.join(user_dir, original_filename)):
-            name, ext = os.path.splitext(original_filename)
-            timestamp = int(time.time())
-            original_filename = f"{name}_{timestamp}{ext}"
-        
-        file_path = os.path.join(user_dir, original_filename)
-        
+        file_path = exclusive_path(user_dir, original_filename)
+        original_filename = os.path.basename(file_path)
+
         # 使用 shutil.copyfileobj 进行高效流式写入（16MB 缓冲区，减少系统调用）
         # Werkzeug 已将上传数据流式写入临时文件，这里从临时文件流式复制到目标位置
         chunk_size = 16 * 1024 * 1024  # 16MB per chunk，适合大文件传输
         hasher = hashlib.new(HASH_ALGO)
-        with open(file_path, 'wb') as dst:
+        with open(file_path, 'xb') as dst:
             shutil.copyfileobj(file.stream, HashingWriter(dst, hasher), chunk_size)
         
         written = os.path.getsize(file_path)
@@ -620,10 +632,18 @@ def upload_merge():
 
         if username is None or not original_filename or not _FILE_ID_RE.match(file_id or ''):
             return bad_request("参数不合法")
+        total_chunks = data.get('total_chunks')
+        if not isinstance(total_chunks, int) or total_chunks < 1:
+            return bad_request("缺少或非法的 total_chunks")
 
         log.info("开始合并分片: user=%s file=%s file_id=%s", username, original_filename, file_id)
         user_dir = get_user_files_dir(username)
-        final_name, digest = merge_chunks(username, file_id, original_filename)
+        try:
+            final_name, digest = merge_chunks(username, file_id, original_filename, total_chunks)
+        except ValueError as e:
+            cleanup_chunks(username, file_id)
+            log.warning("合并被拒(分片不齐): user=%s file=%s file_id=%s: %s", username, original_filename, file_id, e)
+            return bad_request(str(e))
         final_size = os.path.getsize(os.path.join(user_dir, final_name))
         record_hash(user_dir, final_name, digest)
         log.info(
@@ -797,14 +817,64 @@ def delete_file():
 
 
 
+def check_port_in_use(port, timeout=1.0):
+    """探测端口是否已有服务在听。waitress 在 Windows 上允许双绑同一端口
+    （SO_REUSEADDR 语义），旧实例还在跑时新代码不会生效，启动前先拦下"""
+    import socket
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def get_lan_ips():
+    """枚举本机所有 IPv4（排除回环）。虚拟网卡多时 gethostbyname 只给一个，可能打错"""
+    import socket
+    ips = set()
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            ip = info[4][0]
+            if not ip.startswith("127."):
+                ips.add(ip)
+    except OSError:
+        pass
+    return sorted(ips)
+
+
+def get_primary_lan_ip():
+    """UDP connect 探测默认路由出口 IP（不实际发包），通常就是真正的局域网 IP"""
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        return s.getsockname()[0]
+    except OSError:
+        return None
+    finally:
+        s.close()
+
+
+def open_browser_when_ready(url):
+    """延迟 1 秒在服务器本机打开浏览器（等监听就绪），失败静默"""
+    def _open():
+        try:
+            webbrowser.open(url)
+        except Exception:
+            pass
+    t = threading.Timer(1.0, _open)
+    t.daemon = True
+    t.start()
+
+
 def run_dev_server(ip):
     """开发服务器 (Werkzeug) — 仅限本地测试"""
     log.warning("使用开发服务器 (Werkzeug)，仅适合本地测试")
     print("  [警告] 当前使用开发服务器 (Werkzeug)，仅适合本地测试！")
     print("  生产环境请使用:")
-    print("    Windows: run_server.bat")
     print("    Linux:   gunicorn -c gunicorn.conf.py http_messages_share:app")
     print("=" * 60)
+    open_browser_when_ready("http://localhost:5000")
     app.run(debug=False, host='0.0.0.0', port=5000)
 
 
@@ -861,6 +931,7 @@ def run_prod_server(ip):
 
             print("  [Waitress] 正在监听 http://0.0.0.0:5000 ...")
             log.info("Waitress 启动: 0.0.0.0:5000 threads=8 存储目录=%s", os.path.abspath(FILES_DIR))
+            open_browser_when_ready("http://localhost:5000")
             server.run()
         except ImportError:
             print("  [错误] 未安装 waitress，请执行: pip install waitress")
@@ -871,18 +942,30 @@ def run_prod_server(ip):
 
 
 if __name__ == '__main__':
-    import socket
-    
-    hostname = socket.gethostname()
-    ip = socket.gethostbyname(hostname)
-    
+    primary_ip = get_primary_lan_ip()
+    lan_ips = get_lan_ips()
+
     print("=" * 60)
     print("  QuickFilesSharing 服务")
-    print(f"  本地访问:   http://localhost:5000")
-    print(f"  局域网访问: http://{ip}:5000")
-    print(f"  支持最大上传: 30GB")
+    print("  本地访问:   http://localhost:5000")
+    if primary_ip:
+        print(f"  局域网访问: http://{primary_ip}:5000  ← 推荐（默认路由出口）")
+    for ip in lan_ips:
+        if ip != primary_ip:
+            print(f"              http://{ip}:5000")
+    if not lan_ips:
+        print("  局域网访问: （未检测到局域网 IP，仅本机可访问）")
+    print("  支持最大上传: 30GB")
     print("=" * 60)
-    
-    log.info("服务启动: 本地=http://localhost:5000 局域网=http://%s:5000 最大上传=30GB", ip)
+
+    if check_port_in_use(5000):
+        print("  [错误] 端口 5000 已有服务在运行，本次启动退出。")
+        print("  很可能是旧实例没关（它仍在跑旧代码，改动不会生效）：")
+        print("    netstat -ano | findstr :5000   ← 找到 PID")
+        print("    taskkill /PID <PID> /F         ← 结束后再启动")
+        log.error("端口 5000 已被占用，拒绝启动")
+        sys.exit(1)
+
+    log.info("服务启动: 局域网IP=%s 最大上传=30GB", lan_ips or ["未知"])
     start_hash_reconcile()
-    run_prod_server(ip)
+    run_prod_server(primary_ip)
