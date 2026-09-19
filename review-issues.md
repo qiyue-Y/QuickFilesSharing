@@ -44,20 +44,21 @@
 - 验证：启动清扫实测——3 天前的分片目录被删、新鲜目录保留；abort 接口实测分片目录即时消失。
 
 ### P1-6 端口双绑没有守门（踩过的坑）
-- 状态：待讨论
+- 状态：**已修复（2026-09-19）**
 - 位置：`run_prod_server`（`http_messages_share.py:699-758`）固定绑 5000，启动前无检测
-- 问题：Windows + waitress 下两个进程能同时绑 5000（SO_REUSEADDR 语义），旧实例还在跑时新代码"改了没生效"。
-- 改进方向：启动前向 `localhost:5000` 发探测请求，有响应就警告"已有实例在运行"并退出或提示。
+- 修复：启动入口新增 `check_port_in_use(5000)`，被占用则打印排查指引（netstat / taskkill）并 exit(1)，不再静默双绑。
+- 验证：占住 5000 后启动，退出码 1、提示正确。
 
 ### P1-7 启动脚本与入口体验缺口
-- 状态：待讨论
-- 位置：`http_messages_share.py:693` 提示用户用 `run_server.bat`，但仓库里没有这个文件；`:764-765` 用 `gethostbyname` 只打一个 IP，有 VMware/WSL 虚拟网卡时会打错；无 `webbrowser.open` 自动开页；无 README
-- 改进方向：补 start.bat（venv + 启动）、自动开浏览器、枚举打印所有局域网 IPv4。
+- 状态：**已修复（2026-09-19）**——其中"启动脚本"一项被用户明确否决（不要 .bat），代码内引用已全部移除
+- 位置：原 `http_messages_share.py:693` 提示用不存在的 `run_server.bat`；`:764-765` 用 `gethostbyname` 只打一个 IP，有 VMware/WSL 虚拟网卡时会打错；无 `webbrowser.open` 自动开页；无 README
+- 修复：(1) 启动横幅枚举全部局域网 IPv4，并用 UDP connect（不发包）标出默认路由出口为"推荐"；(2) 监听就绪后 1 秒自动打开浏览器（注意 `threading.Timer` 不接受 daemon 参数，需构造后赋值）；(3) 新增 README.md；(4) 移除代码中对 run_server.bat 的提示（曾试做 .bat，实测发现 cmd 按 GBK 解析 .bat、UTF-8 中文行会被当命令执行，用户明确不需要，已删）。
+- 验证：本机实测枚举出 3 个 IP（2 个虚拟网卡 + 198.51.100.7），推荐标记正确；启动后 GET / 返回 200、API 正常。
 
 ### P1-8 `/api/download` 与其他接口的目录基准不一致（CWD ≠ 项目目录时下载 404）
 - 状态：**已修复（2026-09-19）**
 - 位置：`http_messages_share.py:654-660`。`send_from_directory` 会把相对目录拼到 `app.root_path`（py 文件所在目录）；其余接口全部用进程 CWD 的相对路径（`files/...`）。
-- 问题：从项目目录启动时两者恰好一致，一切正常；一旦从其他 CWD 启动（如 `python E:\...\http_messages_share.py`、计划任务、未来的 start.bat 放在别处），上传/列表/删除落在 CWD 的 `files/`，而 `/api/download` 去 `app.root_path/files/` 找——表现为"列表里有文件，点下载 404"。已在测试中复现。
+- 问题：从项目目录启动时两者恰好一致，一切正常；一旦从其他 CWD 启动（如 `python E:\...\http_messages_share.py`、计划任务），上传/列表/删除落在 CWD 的 `files/`，而 `/api/download` 去 `app.root_path/files/` 找——表现为"列表里有文件，点下载 404"。已在测试中复现。
 - 修复：`CLIPBOARD_DIR` / `FILES_DIR` / `LOG_DIR` 统一锚定到 `os.path.dirname(os.path.abspath(__file__))`，CWD 不再影响行为。
 - 验证：从外来目录（%TEMP%）启动服务，列表与 `/api/download` 一致且内容哈希匹配；curl 断点续传（`-r` 取前 1MB + `-C -` 补完，206）与 aria2c（`-x4 -s4 -c`，64MB）下载结果 SHA-256 均与源一致。
 
@@ -69,7 +70,8 @@
 
 ### P2-9 剪切板写入非原子
 - 位置：`http_messages_share.py:163-167`。进程被杀可能截断文件。
-- 方向：照哈希记录的做法 tmp + `os.replace`。
+- 状态：**已修复（2026-09-19）**——临时文件 + `os.replace` 原子替换，与 `write_hashes` 同款模式；写入失败照常返回 500（用户数据不静默吞）。
+- 验证：写入/回读一致，无 `.tmp` 残留。
 
 ### P2-10 上传/下载共用同一条进度条与同一个 `progressTimer`
 - 位置：`index.html:490-496`（共享 DOM）、`:532`（全局 timer）、`:763`（上传启动）、`:1019`（下载覆盖）。
@@ -85,10 +87,12 @@
 
 ### P2-13 重名去重只做一层、时间戳秒级碰撞
 - 位置：`http_messages_share.py:129-131`（merge）、`:420-424`（upload）。同一秒内两次同名上传，第二次的 `名字_时间戳` 仍可能撞上，`open('wb')` 直接覆盖前者。
-- 方向：循环加后缀直到不冲突，或引入毫秒/计数。
+- 状态：**已修复（2026-09-19）**——新增 `exclusive_path()`（原名 → 时间戳 → 时间戳_1 … 循环到空闲）+ `open('xb')` 独占创建，并发抢先时宁可报错也不覆盖。merge 与旧接口 `/api/upload` 两处统一。
+- 验证：同秒两次同名合并产出 `dup.txt` 与 `dup_1789806230.txt`，内容互不覆盖。
 
 ### P2-14 merge 信任磁盘上的分片集合
 - 位置：`http_messages_share.py:136-139`。merge 只合并 `.chunks` 里实际存在的文件，缺片不报错，会产出被截断的文件并记上哈希。自研前端保证了先全后并，但接口本身没有防线。
+- 状态：**已修复（2026-09-19）**——与 P2-20 一起闭环：merge 请求必须带 `total_chunks`（前端补发），后端校验分片序号恰为 0..N-1 无缺失，缺片返回 400"分片不齐全"并自动清理分片目录，不再产出截断文件。
 
 ### P2-15 启动对账可能与早期传输抢磁盘 I/O
 - 位置：`http_messages_share.py:313-315`。后台线程给无记录文件补算 SHA-256（会全量读盘）。已有 mtime+size 跳过机制，重启后通常无活干；仅在大量未记录文件时明显。
@@ -107,6 +111,7 @@
 
 ### P2-20 `total_chunks` 字段收了但服务端没用
 - 位置：`http_messages_share.py:506`（接收）、`:518`（回显）。merge 完全信任磁盘状态（见 P2-14）。要么用来校验分片齐全，要么删掉。
+- 状态：**已修复（2026-09-19）**——合并请求改为必带 `total_chunks`，作为 P2-14 防线的输入；缺失或非法返回 400。
 
 ---
 
