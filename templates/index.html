@@ -514,12 +514,15 @@
 
     <div id="hashModal" class="modal-mask" style="display: none;" onclick="if (event.target === this) closeHashModal()">
         <div class="modal-box">
-            <h4>SHA-256 校验码</h4>
+            <h4>文件信息</h4>
             <div class="modal-file" id="hashModalFile"></div>
             <input id="hashModalValue" readonly onclick="this.select()" placeholder="计算中…">
             <div class="modal-hint" id="hashModalHint"></div>
             <div class="verify-title">在接收端本机校验（复制后执行）</div>
             <div class="verify-list" id="hashModalCmds"></div>
+            <div class="verify-title">命令行下载（支持断点续传，大文件推荐）</div>
+            <div class="verify-list" id="hashModalDl"></div>
+            <div class="verify-hint">命令里的服务器地址取自当前页面地址栏；若本机用 localhost 打开，发给别人前把地址换成服务器的局域网 IP。</div>
             <div class="modal-actions">
                 <button class="btn btn-ghost" onclick="closeHashModal()">关闭</button>
             </div>
@@ -595,6 +598,7 @@
         // === 分片并行传输配置 ===
         const CHUNK_SIZE = 32 * 1024 * 1024;     // 32MB 每片
         const PARALLEL_STREAMS = 4;             // 4 路并行
+        const NATIVE_DL_LIMIT = 1024 * 1024 * 1024; // 超过 1GB 交给浏览器下载管理器：分片方案要整文件驻留内存（约 2 倍文件大小），可靠上限约 1GB
 
         function formatSize(bytes) {
             if (bytes < 1024) return bytes + ' B';
@@ -905,6 +909,22 @@
                 </div>`).join('');
         }
 
+        // 命令行下载命令（curl/aria2 走浏览器外通道，流式落盘 + 断点续传，适合大文件）
+        function downloadCommandsHTML(filename) {
+            const url = `${location.origin}/api/download?username=${encodeURIComponent(currentUsername)}&filename=${encodeURIComponent(filename)}`;
+            const rows = [
+                ['Windows · CMD', `curl -C - -o "${filename}" "${url}"`],
+                ['Windows · PowerShell', `curl.exe -C - -o "${filename}" "${url}"`],
+                ['Linux / macOS', `curl -C - -o "${filename}" "${url}"`],
+                ['aria2 · 4 线程并行（需自行安装）', `aria2c -x4 -s4 -c -o "${filename}" "${url}"`],
+            ];
+            return rows.map(([os, cmd]) => `
+                <div class="verify-row">
+                    <div class="verify-os">${os}</div>
+                    <div class="verify-cmd"><code>${escapeHtml(cmd)}</code><button type="button" class="verify-copy">复制</button></div>
+                </div>`).join('');
+        }
+
         function copyToClipboard(text) {
             // 局域网 HTTP 下没有 navigator.clipboard，用临时输入框 + execCommand 兜底
             const ta = document.createElement('textarea');
@@ -938,6 +958,7 @@
             const hint = document.getElementById('hashModalHint');
             document.getElementById('hashModalFile').textContent = filename;
             document.getElementById('hashModalCmds').innerHTML = verifyCommandsHTML(filename);
+            document.getElementById('hashModalDl').innerHTML = downloadCommandsHTML(filename);
             valueInput.value = '';
             valueInput.placeholder = '计算中…';
             hint.innerHTML = '正在获取校验码…';
@@ -975,8 +996,8 @@
                     fileList.innerHTML = data.files.map(f => {
                         const safe = f.name.replace(/'/g, "\\'");
                         const hashLine = f.sha256
-                            ? `<div class="file-hash" title="点击查看完整校验码" onclick="openHashModal('${safe}')">SHA-256: ${f.sha256.slice(0, 12)}…</div>`
-                            : `<div class="file-hash" title="点击计算校验码" onclick="openHashModal('${safe}')">校验码未记录，点击计算</div>`;
+                            ? `<div class="file-hash" title="点击查看校验码与命令行下载" onclick="openHashModal('${safe}')">SHA-256: ${f.sha256.slice(0, 12)}…</div>`
+                            : `<div class="file-hash" title="点击计算校验码，并可获取命令行下载" onclick="openHashModal('${safe}')">校验码未记录，点击计算</div>`;
                         return `
                         <div class="file-item">
                             <span class="file-icon">${fileIcon(f.name)}</span>
@@ -995,6 +1016,22 @@
         }
 
         // ========== 分片并行下载 ==========
+        function nativeDownload(filename, size) {
+            // 大文件改走 /api/download：由浏览器下载管理器流式落盘，无内存上限且支持断点续传
+            const uploadStatus = document.getElementById('uploadStatus');
+            uploadStatus.textContent =
+                `文件较大（${formatSize(size)}），已交给浏览器下载管理器，进度与续传请看浏览器下载栏；也可点文件校验码行获取 curl / aria2 命令`;
+            uploadStatus.style.cssText = 'color:#1e40af;background:#dbeafe;padding:10px;border-radius:8px;display:block;';
+
+            const a = document.createElement('a');
+            a.href = `/api/download?username=${encodeURIComponent(currentUsername)}&filename=${encodeURIComponent(filename)}`;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => { uploadStatus.style.cssText = ''; uploadStatus.textContent = ''; }, 8000);
+        }
+
         function downloadFile(filename) {
             const uploadStatus = document.getElementById('uploadStatus');
             const progressBar = document.getElementById('progressBar');
@@ -1003,14 +1040,20 @@
 
             uploadStatus.style.cssText = '';
             uploadStatus.textContent = '正在获取文件信息...';
-            progressFill.style.width = '0%';
-            progressBar.classList.add('active');
-            progressInfo.classList.add('active');
 
             fetch(`/api/file/info?username=${currentUsername}&filename=${encodeURIComponent(filename)}`)
                 .then(r => r.json())
                 .then(info => {
                     if (!info.success) throw new Error(info.error || '文件不存在');
+
+                    if (info.size > NATIVE_DL_LIMIT) {
+                        nativeDownload(filename, info.size);
+                        return;
+                    }
+
+                    progressFill.style.width = '0%';
+                    progressBar.classList.add('active');
+                    progressInfo.classList.add('active');
 
                     const fileSize = info.size;
                     const totalChunks = Math.max(1, Math.ceil(fileSize / CHUNK_SIZE));
