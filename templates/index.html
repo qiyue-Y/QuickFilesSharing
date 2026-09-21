@@ -236,6 +236,15 @@
             color: var(--text-soft);
             margin-top: 10px;
         }
+        .disk-info {
+            font-size: 12px;
+            color: var(--text-soft);
+            margin-bottom: 10px;
+        }
+        .disk-info.low {
+            color: var(--danger);
+            font-weight: 600;
+        }
 
         .progress-wrap { margin-top: 12px; }
         .progress-bar {
@@ -497,6 +506,7 @@
                     </div>
                     <div class="upload-status" id="uploadStatus"></div>
                 </div>
+                <div class="disk-info" id="diskInfo" style="display:none;"></div>
                 <div class="file-list" id="fileList"></div>
                 <details class="verify-help">
                     <summary>下载后怎么校验文件完整性？</summary>
@@ -533,9 +543,10 @@
 
     <script>
         let currentUsername = null;
-        let transferXhrs = [];   // 当前传输（上传/下载）的所有 XHR（用于取消）
-        let transferCancelled = false;
-        let activeTransferId = null; // 进行中的上传 file_id（取消时通知后端清分片）
+        // 当前传输（同一时刻只允许一个）：{ kind: 'upload'|'download', xhrs, cancelled, fileId }。
+        // 此前 transferXhrs/transferCancelled/activeTransferId 三个全局单例会被并发传输互相覆盖，
+        // "上传中点下载再点取消"会拿残留的上传 file_id 误删正在上传的分片
+        let currentTransfer = null;
         function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
         const STORAGE_KEY = 'clipboard_last_user';
 
@@ -605,15 +616,16 @@
         }
 
         function cancelTransfer() {
-            if (transferCancelled) return;
-            transferCancelled = true;
-            transferXhrs.forEach(x => { try { x.abort(); } catch (e) {} });
-            if (activeTransferId) {
+            const t = currentTransfer;
+            if (!t || t.cancelled) return;
+            t.cancelled = true;
+            t.xhrs.forEach(x => { try { x.abort(); } catch (e) {} });
+            if (t.kind === 'upload' && t.fileId) {
                 // 通知后端丢弃已上传的分片
                 fetch('/api/upload/abort', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({username: currentUsername, file_id: activeTransferId})
+                    body: JSON.stringify({username: currentUsername, file_id: t.fileId})
                 }).catch(() => {});
             }
         }
@@ -719,7 +731,32 @@
             }
 
             const uploadStatus = document.getElementById('uploadStatus');
+            if (currentTransfer) {
+                uploadStatus.textContent = '已有传输进行中，请等它完成或点"取消传输"';
+                uploadStatus.style.cssText = 'color:#991b1b;background:#fee2e2;padding:10px;border-radius:8px;display:block;';
+                document.getElementById('fileInput').value = '';
+                return;
+            }
+
+            // 上传前预检服务器磁盘：合并期间分片与成品短暂并存，峰值占用 ≈ 本批总量 + 最大文件，
+            // 再留 5% 余量；不够就一个分片都不发，避免白传
+            try {
+                const disk = await (await fetch('/api/disk')).json();
+                if (disk.success) {
+                    const totalBytes = files.reduce((s, f) => s + f.size, 0);
+                    const maxBytes = files.reduce((m, f) => Math.max(m, f.size), 0);
+                    const required = (totalBytes + maxBytes) * 1.05;
+                    if (disk.free < required) {
+                        uploadStatus.textContent = `服务器剩余空间不足：本次约需 ${formatSize(required)}（含合并期间的临时占用），当前可用 ${formatSize(disk.free)}，已取消上传`;
+                        uploadStatus.style.cssText = 'color:#991b1b;background:#fee2e2;padding:10px;border-radius:8px;display:block;';
+                        document.getElementById('fileInput').value = '';
+                        return;
+                    }
+                }
+            } catch (e) { /* 查询失败不拦上传（旧服务端没有该接口时照常走） */ }
+
             const results = [];
+            let batchCancelled = false;
 
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
@@ -732,21 +769,25 @@
                     });
                     results.push({ success: true, name: finalName || file.name });
                 } catch (err) {
+                    if (err && err.busy) break;  // 中途被其他传输占用，停止后续文件
                     results.push({ success: false, name: file.name, error: err.message });
-                    if (transferCancelled) break;
+                    if (err && err.cancelled) { batchCancelled = true; break; }
                 }
             }
 
             const successCount = results.filter(item => item.success).length;
             const failCount = results.length - successCount;
-            if (transferCancelled) {
+            if (batchCancelled) {
                 uploadStatus.textContent = '批量上传已取消';
                 uploadStatus.style.cssText = 'color:#92400e;background:#fef3c7;padding:10px;border-radius:8px;display:block;';
             } else if (failCount === 0) {
                 uploadStatus.textContent = `批量上传完成：成功 ${successCount} 个文件`;
                 uploadStatus.style.cssText = 'color:#166534;background:#dcfce7;padding:10px;border-radius:8px;display:block;';
             } else {
-                uploadStatus.textContent = `批量上传完成：成功 ${successCount} 个，失败 ${failCount} 个`;
+                // 总结会覆盖单文件错误文案，把首个失败原因带上（服务端拒绝的原始话术，如"磁盘空间不足"）
+                const firstFail = results.find(item => !item.success);
+                uploadStatus.textContent = `批量上传完成：成功 ${successCount} 个，失败 ${failCount} 个` +
+                    (firstFail && firstFail.error ? `（首个原因：${firstFail.error}）` : '');
                 uploadStatus.style.cssText = 'color:#92400e;background:#fef3c7;padding:10px;border-radius:8px;display:block;';
             }
 
@@ -777,8 +818,16 @@
                 return;
             }
 
-            transferXhrs = [];
-            transferCancelled = false;
+            // 批量上传的间隙（上一个文件已结束、下一个还没开始）可能插进下载等传输，这里再拦一次
+            if (currentTransfer) {
+                const err = new Error('已有传输进行中');
+                err.busy = true;
+                if (fileObj === undefined) document.getElementById('fileInput').value = '';
+                return Promise.reject(err);
+            }
+
+            const transfer = { kind: 'upload', xhrs: [], cancelled: false, fileId: null };
+            currentTransfer = transfer;
             setCancelVisible(true);
 
             return new Promise((resolve, reject) => {
@@ -790,7 +839,7 @@
 
                 const totalChunks = Math.max(1, Math.ceil(file.size / CHUNK_SIZE));
                 const fileId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-                activeTransferId = fileId;
+                transfer.fileId = fileId;
                 const ui = makeProgressUI(file.size, totalChunks);
                 const batchPrefix = batchMeta && batchMeta.batchTotal > 1
                     ? `第 ${batchMeta.batchIndex}/${batchMeta.batchTotal} 个文件<br>`
@@ -812,7 +861,7 @@
                         const blob = file.slice(start, end);
 
                         const xhr = new XMLHttpRequest();
-                        transferXhrs.push(xhr);
+                        transfer.xhrs.push(xhr);
 
                         xhr.upload.addEventListener('progress', function(e) {
                             if (e.lengthComputable) {
@@ -830,7 +879,11 @@
                                         chunkReject(new Error(data.error || '分片上传失败'));
                                     }
                                 } catch (e) { chunkReject(new Error('响应解析错误')); }
-                            } else { chunkReject(new Error('HTTP ' + xhr.status)); }
+                            } else {
+                                let detail = '';
+                                try { detail = JSON.parse(xhr.responseText).error || ''; } catch (e) {}
+                                chunkReject(new Error('HTTP ' + xhr.status + (detail ? '：' + detail : '')));
+                            }
                         });
                         xhr.addEventListener('error', () => chunkReject(new Error('网络错误')));
                         xhr.addEventListener('abort', () => chunkReject(new Error('已取消')));
@@ -846,19 +899,22 @@
                     const queue = Array.from({ length: totalChunks }, (_, i) => i);
                     const inFlight = new Set();
                     let fatal = false;
+                    let firstError = null; // 保住首个失败的原始错误（如"磁盘空间不足"），最终原样显示给用户
 
                     async function processNext() {
                         while (queue.length > 0 && !fatal) {
                             const idx = queue.shift();
                             const p = uploadChunk(idx).catch(async err => {
-                                if (transferCancelled) throw err;
+                                if (!firstError) firstError = err;
+                                if (transfer.cancelled) throw err;
                                 console.error(`分片 ${idx} 失败:`, err.message);
                                 await sleep(300);
-                                if (transferCancelled) throw err;
+                                if (transfer.cancelled) throw err;
                                 return uploadChunk(idx).catch(async () => {
                                     await sleep(800);
                                     fatal = true;
-                                    throw new Error(`分片 ${idx} 重试失败`);
+                                    // 抛首个原始错误（服务端的拒绝原因），不抛"分片 N 重试失败"这种包装话术
+                                    throw firstError;
                                 });
                             });
                             inFlight.add(p);
@@ -868,7 +924,7 @@
                         await Promise.all(inFlight);
                     }
                     await processNext();
-                    if (fatal) throw new Error('部分分片上传失败');
+                    if (fatal) throw firstError || new Error('部分分片上传失败');
                 }
 
                 document.getElementById('fileInput').disabled = true;
@@ -896,8 +952,7 @@
                     progressBar.classList.remove('active');
                     progressInfo.classList.remove('active');
                     document.getElementById('fileInput').disabled = false;
-                    transferXhrs = [];
-                    activeTransferId = null;
+                    if (currentTransfer === transfer) currentTransfer = null;
                     setCancelVisible(false);
                     if (data.success) {
                         const hashNote = data.sha256 ? `（SHA-256: ${data.sha256.slice(0, 12)}…）` : '';
@@ -916,11 +971,11 @@
                     progressBar.classList.remove('active');
                     progressInfo.classList.remove('active');
                     document.getElementById('fileInput').disabled = false;
-                    transferXhrs = [];
-                    activeTransferId = null;
+                    if (currentTransfer === transfer) currentTransfer = null;
                     setCancelVisible(false);
-                    uploadStatus.textContent = transferCancelled ? '上传已取消' : '上传失败：' + err.message;
+                    uploadStatus.textContent = transfer.cancelled ? '上传已取消' : '上传失败：' + err.message;
                     uploadStatus.style.cssText = 'color:#991b1b;background:#fee2e2;padding:10px;border-radius:8px;display:block;';
+                    if (transfer.cancelled) err.cancelled = true;
                     reject(err);
                 });
             });
@@ -1023,7 +1078,23 @@
                 });
         }
 
+        function loadDiskInfo() {
+            // 服务器剩余空间（低水位 10GB 标红）；查询失败静默，不挡文件列表
+            fetch('/api/disk')
+                .then(r => r.json())
+                .then(d => {
+                    if (!d.success) return;
+                    const el = document.getElementById('diskInfo');
+                    const low = d.free < 10 * 1024 * 1024 * 1024;
+                    el.textContent = `服务器剩余空间: ${formatSize(d.free)} / ${formatSize(d.total)}`;
+                    el.className = 'disk-info' + (low ? ' low' : '');
+                    el.style.display = 'block';
+                })
+                .catch(() => {});
+        }
+
         function loadFiles() {
+            loadDiskInfo();
             fetch(`/api/files?username=${currentUsername}`)
                 .then(res => res.json())
                 .then(data => {
@@ -1086,6 +1157,14 @@
             const progressBar = document.getElementById('progressBar');
             const progressFill = document.getElementById('progressFill');
             const progressInfo = document.getElementById('progressInfo');
+            // 声明在外层：外层 catch（获取文件信息失败时）也要清它，否则引用未定义变量直接抛错
+            let downloadTimer = null;
+
+            if (currentTransfer) {
+                uploadStatus.textContent = '已有传输进行中，请等它完成或点"取消传输"';
+                uploadStatus.style.cssText = 'color:#991b1b;background:#fee2e2;padding:10px;border-radius:8px;display:block;';
+                return;
+            }
 
             uploadStatus.style.cssText = '';
             uploadStatus.textContent = '正在获取文件信息...';
@@ -1100,8 +1179,8 @@
                         return;
                     }
 
-                    transferXhrs = [];
-                    transferCancelled = false;
+                    const transfer = { kind: 'download', xhrs: [], cancelled: false, fileId: null };
+                    currentTransfer = transfer;
                     setCancelVisible(true);
 
                     progressFill.style.width = '0%';
@@ -1112,7 +1191,7 @@
                     const totalChunks = Math.max(1, Math.ceil(fileSize / CHUNK_SIZE));
                     const chunkData = new Array(totalChunks).fill(null);
                     const ui = makeProgressUI(fileSize, totalChunks);
-                    const downloadTimer = setInterval(() => ui.tick('⬇'), 200);
+                    downloadTimer = setInterval(() => ui.tick('⬇'), 200);
 
                     function downloadChunk(chunkIndex) {
                         return new Promise((resolve, reject) => {
@@ -1121,7 +1200,7 @@
                             const chunkSize = end - start + 1;
 
                             const xhr = new XMLHttpRequest();
-                            transferXhrs.push(xhr);
+                            transfer.xhrs.push(xhr);
                             xhr.responseType = 'arraybuffer';
                             xhr.addEventListener('progress', function(e) {
                                 if (e.lengthComputable) ui.chunkProgress[chunkIndex] = e.loaded;
@@ -1148,9 +1227,9 @@
                             while (queue.length > 0) {
                                 const idx = queue.shift();
                                 const p = downloadChunk(idx).catch(async err => {
-                                    if (transferCancelled) throw err;
+                                    if (transfer.cancelled) throw err;
                                     await sleep(300);
-                                    if (transferCancelled) throw err;
+                                    if (transfer.cancelled) throw err;
                                     return downloadChunk(idx);
                                 });
                                 inFlight.add(p);
@@ -1174,6 +1253,7 @@
                         progressFill.style.width = '100%';
                         progressBar.classList.remove('active');
                         progressInfo.classList.remove('active');
+                        if (currentTransfer === transfer) currentTransfer = null;
                         setCancelVisible(false);
                         uploadStatus.textContent = '下载完成！';
                         uploadStatus.style.cssText = 'color:#166534;background:#dcfce7;padding:10px;border-radius:8px;display:block;';
@@ -1190,9 +1270,9 @@
                         clearInterval(downloadTimer);
                         progressBar.classList.remove('active');
                         progressInfo.classList.remove('active');
-                        transferXhrs = [];
+                        if (currentTransfer === transfer) currentTransfer = null;
                         setCancelVisible(false);
-                        uploadStatus.textContent = transferCancelled ? '下载已取消' : '下载失败：' + err.message;
+                        uploadStatus.textContent = transfer.cancelled ? '下载已取消' : '下载失败：' + err.message;
                         uploadStatus.style.cssText = 'color:#991b1b;background:#fee2e2;padding:10px;border-radius:8px;display:block;';
                     });
                 })
@@ -1200,9 +1280,8 @@
                     clearInterval(downloadTimer);
                     progressBar.classList.remove('active');
                     progressInfo.classList.remove('active');
-                    transferXhrs = [];
                     setCancelVisible(false);
-                    uploadStatus.textContent = transferCancelled ? '下载已取消' : '下载失败：' + err.message;
+                    uploadStatus.textContent = '下载失败：' + err.message;
                     uploadStatus.style.cssText = 'color:#991b1b;background:#fee2e2;padding:10px;border-radius:8px;display:block;';
                 });
         }

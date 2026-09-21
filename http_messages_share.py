@@ -96,14 +96,31 @@ def normalize_username(username):
     return username if _USERNAME_RE.match(username) else None
 
 
+# Windows 设备名：open("NUL.txt") 也会命中设备而不是创建文件，上传会"假成功"，整类拒绝
+_WIN_DEVICE_NAMES = {
+    "CON", "PRN", "AUX", "NUL",
+    *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10)),
+}
+
+
 def safe_filename(filename):
-    """文件名校验：拒绝路径分隔符、..、隐藏文件（含 .hashes.json）；非法返回 None"""
+    """文件名校验：拒绝路径分隔符、..、隐藏文件（含 .hashes.json）、控制字符、
+    Windows 设备名、结尾点/空格（Windows 会静默归一化，导致哈希记录键对不上）、超长名；
+    非法返回 None"""
     if not filename:
         return None
     filename = str(filename).strip()
     if not filename or filename in (".", ".."):
         return None
     if "/" in filename or "\\" in filename or filename.startswith("."):
+        return None
+    if any(ord(c) < 32 for c in filename):
+        return None
+    if filename.split(".")[0].upper() in _WIN_DEVICE_NAMES:
+        return None
+    if filename != filename.rstrip(" ."):
+        return None
+    if len(filename) > 200:
         return None
     return filename
 
@@ -174,27 +191,32 @@ def merge_chunks(username, file_id, original_filename, total_chunks):
     if indices != list(range(total_chunks)):
         raise ValueError(f"分片不齐全: 期望 {total_chunks} 片，实收 {len(indices)} 片")
 
-    # 处理重名：独占创建，绝不覆盖已有文件
-    file_path = exclusive_path(user_dir, original_filename)
-    final_name = os.path.basename(file_path)
-
-    # 合并时顺带算出整文件哈希，不用再读一遍磁盘
+    # 合并时顺带算出整文件哈希，不用再读一遍磁盘。
+    # 同名并发抢先时 open('xb') 抛 FileExistsError：分片完好，重挑候选名再试，
+    # 不把这次上传丢掉；走到通用 except 的一定是 open 成功后的写入失败，
+    # os.remove 删的只会是自己创建的半成品
     hasher = hashlib.new(HASH_ALGO)
-    try:
-        with open(file_path, 'xb') as dst:
-            writer = HashingWriter(dst, hasher)
-            for chunk_file in chunk_files:
-                with open(chunk_file, 'rb') as src:
-                    shutil.copyfileobj(src, writer, STREAM_CHUNK)
-    except Exception:
-        # 合并失败：清掉半成品与分片，避免留下损坏文件或孤儿分片
+    while True:
+        file_path = exclusive_path(user_dir, original_filename)
         try:
-            os.remove(file_path)
-        except OSError:
-            pass
-        cleanup_chunks(username, file_id)
-        raise
+            with open(file_path, 'xb') as dst:
+                writer = HashingWriter(dst, hasher)
+                for chunk_file in chunk_files:
+                    with open(chunk_file, 'rb') as src:
+                        shutil.copyfileobj(src, writer, STREAM_CHUNK)
+            break
+        except FileExistsError:
+            continue
+        except Exception:
+            # 合并失败：清掉半成品与分片，避免留下损坏文件或孤儿分片
+            try:
+                os.remove(file_path)
+            except OSError:
+                pass
+            cleanup_chunks(username, file_id)
+            raise
 
+    final_name = os.path.basename(file_path)
     # 清理分片
     cleanup_chunks(username, file_id)
     return final_name, hasher.hexdigest()
@@ -329,14 +351,10 @@ def reconcile_hashes():
         try:
             records = read_hashes(user_dir)
             names = [n for n in os.listdir(user_dir) if not n.startswith(".")]
-            dirty = False
 
-            for name in list(records):
-                if name not in names:
-                    records.pop(name)
-                    pruned += 1
-                    dirty = True
-
+            # 删除的文件 → 清记录；无有效记录的文件 → 补算（hash_file 可能耗时几十秒，留在锁外）
+            gone = [name for name in records if name not in names]
+            backfill = {}
             for name in names:
                 full = os.path.join(user_dir, name)
                 if not os.path.isfile(full):
@@ -345,12 +363,18 @@ def reconcile_hashes():
                 if signature is None or known_hash(records.get(name), signature) is not None:
                     continue
                 log.info("补算校验码: user=%s file=%s size=%s", username, name, human_size(signature[0]))
-                records[name] = {HASH_ALGO: hash_file(full), "size": signature[0], "mtime": signature[1]}
-                hashed += 1
-                dirty = True
+                backfill[name] = {HASH_ALGO: hash_file(full), "size": signature[0], "mtime": signature[1]}
 
-            if dirty:
-                write_hashes(user_dir, records)
+            if gone or backfill:
+                # 进锁后重读再合并写出：直接写手里这份旧快照会覆盖并发上传写入的新记录
+                with _hash_lock:
+                    fresh = read_hashes(user_dir)
+                    for name in gone:
+                        fresh.pop(name, None)
+                    fresh.update(backfill)
+                    write_hashes(user_dir, fresh)
+                pruned += len(gone)
+                hashed += len(backfill)
         except Exception:
             failed += 1
             log.exception("校验码对账失败: %s", user_dir)
@@ -424,6 +448,12 @@ def _request_end(resp):
     content_length = resp.headers.get("Content-Length")
     size_text = human_size(int(content_length)) if content_length else "-"
     byte_range = request.headers.get("Range")
+    # 页面与 JSON 接口禁缓存，防止浏览器/后退缓存给出旧页面旧列表；
+    # /api/download* 的 ETag/Last-Modified 是断点续传在用的，不能碰
+    if request.path == "/":
+        resp.headers["Cache-Control"] = "no-cache"
+    elif request.path.startswith("/api/") and request.path not in ("/api/download", "/api/download/chunk"):
+        resp.headers["Cache-Control"] = "no-store"
     # 分片级请求量大（30GB ≈ 960 条），降为 DEBUG；关键事件（完成/合并/中断）仍为 INFO
     log_fn = log.debug if request.path in ("/api/upload/chunk", "/api/download/chunk") else log.info
     log_fn(
@@ -577,8 +607,9 @@ def upload_merge():
         if username is None or not original_filename or not _FILE_ID_RE.match(file_id or ''):
             return bad_request("参数不合法")
         total_chunks = data.get('total_chunks')
-        if not isinstance(total_chunks, int) or total_chunks < 1:
-            return bad_request("缺少或非法的 total_chunks")
+        # 上限 4096：30GB/32MB 分片只有 960 片；无上限时 list(range(total_chunks)) 会被恶意大值撑爆内存
+        if not isinstance(total_chunks, int) or not (1 <= total_chunks <= 4096):
+            return bad_request("total_chunks 缺失或超出范围")
 
         log.info("开始合并分片: user=%s file=%s file_id=%s", username, original_filename, file_id)
         user_dir = get_user_files_dir(username)
@@ -595,9 +626,9 @@ def upload_merge():
             username, final_name, human_size(final_size), HASH_ALGO, digest, time.monotonic() - started
         )
         return jsonify({"success": True, "filename": final_name, HASH_ALGO: digest})
-    except Exception as e:
+    except Exception:
         log.exception("合并分片失败: %s", request.full_path.rstrip("?"))
-        return jsonify({"success": False, "error": str(e)})
+        return jsonify({"success": False, "error": "合并失败，详情见服务端日志"})
 
 
 @app.route('/api/upload/abort', methods=['POST'])
@@ -683,6 +714,7 @@ def download_chunk():
     # 流式发送指定范围，使用大缓冲区
     def generate():
         sent = 0
+        started_at = time.monotonic()
         try:
             with open(file_path, 'rb') as f:
                 f.seek(start)
@@ -695,11 +727,19 @@ def download_chunk():
                     sent += len(chunk)
                     yield chunk
         finally:
-            # 客户端提前断开（关页面/内存不足导致中止）会在这里暴露出来
+            elapsed = time.monotonic() - started_at
             if sent < length:
+                # 客户端提前断开（关页面/内存不足导致中止）会在这里暴露出来
                 log.warning(
                     "下载中断: user=%s file=%s start=%d 已发送=%s/期望=%s from=%s",
                     username, filename, start, human_size(sent), human_size(length), client_ip
+                )
+            else:
+                # after_request 记不到响应体耗时（0.0x s），真吞吐在这里记
+                log.info(
+                    "下载完成: user=%s file=%s start=%d 已发送=%s 耗时=%.2fs 均速=%.1fMB/s from=%s",
+                    username, filename, start, human_size(sent), elapsed,
+                    sent / 1048576 / elapsed if elapsed > 0 else 0, client_ip
                 )
 
     resp = Response(generate(), status=206, mimetype='application/octet-stream')
@@ -712,6 +752,17 @@ def download_chunk():
         f"attachment; filename=\"{ascii_fallback}\"; filename*=UTF-8''{quote(filename)}"
     )
     return resp
+
+
+@app.route('/api/disk', methods=['GET'])
+def disk_info():
+    """查询存储盘剩余空间（前端上传前预检用，无路径参数）"""
+    try:
+        usage = shutil.disk_usage(FILES_DIR)
+    except OSError:
+        log.exception("查询磁盘空间失败")
+        return jsonify({"success": False, "error": "查询磁盘空间失败"}), 500
+    return jsonify({"success": True, "free": usage.free, "total": usage.total})
 
 
 @app.route('/api/files', methods=['GET'])
@@ -771,9 +822,9 @@ def delete_file():
         else:
             log.warning("删除失败(文件不存在): user=%s file=%s", username, filename)
             return jsonify({"success": False, "error": "文件不存在"})
-    except Exception as e:
+    except Exception:
         log.exception("删除文件异常: %s", request.full_path.rstrip("?"))
-        return jsonify({"success": False, "error": str(e)})
+        return jsonify({"success": False, "error": "删除失败，详情见服务端日志"})
 
 
 
