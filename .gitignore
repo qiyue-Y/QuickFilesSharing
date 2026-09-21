@@ -18,3 +18,11 @@ logs/
 
 # Agent workspace
 .claude/
+.hallmark/
+.qoder-credits/
+
+# 前端设计竞稿与参考图（本地留存，约 13.7MB 二进制不入库）
+demo-v1/
+demo-v2/
+demo-v3/
+qfs-waterlilies/
