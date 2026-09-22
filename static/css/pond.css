@@ -57,7 +57,7 @@
 .title-halo {
   position: absolute; left: 50%; top: -18%; width: 80%; height: 132%;
   transform: translateX(-50%);
-  background: radial-gradient(50% 60% at 50% 50%, rgba(242,207,143,.16), transparent 70%);
+  background: radial-gradient(50% 60% at 50% 50%, rgba(var(--rgb-gold), .16), transparent 70%);
   z-index: -1;
 }
 
@@ -71,7 +71,7 @@
   color: var(--ink-faint);
   animation: softIn .9s .25s backwards;
 }
-.eyebrow .dot { color: rgba(242,207,143,.7); }
+.eyebrow .dot { color: rgba(var(--rgb-gold), .7); }
 
 .qtitle {
   position: relative; margin: 0; display: inline-flex;
@@ -92,7 +92,7 @@
   display: inline-block;
   /* 左右留白：古典字体 Q/S 弧笔贴近字面盒边缘，防止渐变裁剪削边 */
   padding: 0 .05em;
-  background: linear-gradient(102deg, var(--dusk-cream) 28%, #fff8e8 44%, var(--gold-glint) 50%, var(--dusk-cream) 66%);
+  background: linear-gradient(102deg, var(--dusk-cream) 28%, rgb(var(--rgb-glow)) 44%, var(--gold-glint) 50%, var(--dusk-cream) 66%);
   background-size: 260% 100%;
   -webkit-background-clip: text; background-clip: text;
   color: transparent; -webkit-text-fill-color: transparent;
@@ -133,7 +133,7 @@
   width: clamp(176px,19vw,236px); height: auto;
   border-radius: var(--qfs-radius-sm);
   border: 1px solid var(--hairline);
-  box-shadow: 0 18px 48px -22px rgba(0,0,0,.55);
+  box-shadow: 0 18px 48px -22px rgba(var(--rgb-shadow), .55);
 }
 .gallery figcaption { margin-top: 12px; display: flex; flex-direction: column; gap: 3px; }
 .cap-latin {

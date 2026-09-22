@@ -38,14 +38,14 @@ body[data-stage="login"] .bg-vignette { opacity: 0; }
 /* ---------- 登录态蒙版：压在共用池面上加深，淡出时机见下面 .portal 一组 ---------- */
 #login-gate .backdrop { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
 #login-gate .veil { position: absolute; inset: 0; pointer-events: none; }
-#login-gate .veil-flat { background: rgba(13, 32, 39, .66); }
+#login-gate .veil-flat { background: rgba(var(--rgb-pond-deep), .66); }
 #login-gate .vignette {
   background: radial-gradient(92% 84% at 50% 42%,
-              rgba(13, 32, 39, 0) 38%, rgba(7, 18, 23, .62) 100%);
+              rgba(var(--rgb-pond-deep), 0) 38%, rgba(7, 18, 23, .62) 100%);
 }
 #login-gate .side-light {
   background: linear-gradient(100deg, rgba(7, 18, 23, .42) 0%,
-              rgba(13, 32, 39, 0) 42%, rgba(13, 32, 39, 0) 66%,
+              rgba(var(--rgb-pond-deep), 0) 42%, rgba(var(--rgb-pond-deep), 0) 66%,
               rgba(7, 18, 23, .22) 100%);
 }
 
@@ -71,17 +71,17 @@ body[data-stage="app"] #login-gate .backdrop { opacity: 0; }
 }
 #login-gate .arch {
   position: relative; height: 424px; padding: 7px;
-  border: 1px solid rgba(242, 207, 143, .55);
+  border: 1px solid rgba(var(--rgb-gold), .55);
   border-radius: 50% 50% 6px 6px / 38% 38% 6px 6px;
-  background: rgba(13, 32, 39, .5);
+  background: rgba(var(--rgb-pond-deep), .5);
   animation: lbArchBreathe 5.6s ease-in-out 1.4s infinite;
   transition: transform 450ms cubic-bezier(.32,.72,0,1),
               filter 450ms cubic-bezier(.32,.72,0,1),
               border-color 450ms ease, box-shadow 450ms ease;
 }
 @keyframes lbArchBreathe {
-  0%, 100% { box-shadow: 0 22px 54px rgba(4, 12, 16, .5), 0 0 22px -8px rgba(242, 207, 143, 0); }
-  50%      { box-shadow: 0 24px 60px rgba(4, 12, 16, .55), 0 0 30px -8px rgba(242, 207, 143, .22); }
+  0%, 100% { box-shadow: 0 22px 54px rgba(4, 12, 16, .5), 0 0 22px -8px rgba(var(--rgb-gold), 0); }
+  50%      { box-shadow: 0 24px 60px rgba(4, 12, 16, .55), 0 0 30px -8px rgba(var(--rgb-gold), .22); }
 }
 #login-gate .arch-inner {
   position: relative; width: 100%; height: 100%;
@@ -96,8 +96,8 @@ body[data-stage="app"] #login-gate .backdrop { opacity: 0; }
 }
 #login-gate .arch-inner::after {
   content: ""; position: absolute; inset: 0;
-  background: linear-gradient(180deg, rgba(13, 32, 39, 0) 58%,
-              rgba(13, 32, 39, .28) 84%, rgba(10, 24, 30, .48) 100%);
+  background: linear-gradient(180deg, rgba(var(--rgb-pond-deep), 0) 58%,
+              rgba(var(--rgb-pond-deep), .28) 84%, rgba(10, 24, 30, .48) 100%);
 }
 #login-gate .plaque {
   margin-top: 15px; display: flex; flex-direction: column;
@@ -119,7 +119,7 @@ body[data-stage="app"] #login-gate .backdrop { opacity: 0; }
   -webkit-backdrop-filter: blur(16px) saturate(1.06);
   backdrop-filter: blur(16px) saturate(1.06);
   border: 1px solid var(--hairline);
-  box-shadow: 0 22px 54px rgba(4, 11, 15, .46), inset 0 1px 0 rgba(243, 230, 205, .07);
+  box-shadow: 0 22px 54px rgba(4, 11, 15, .46), inset 0 1px 0 rgba(var(--rgb-dusk-cream), .07);
   animation: lbRiseIn 420ms cubic-bezier(.3,0,0,1) 300ms backwards;
 }
 #login-gate .login-card.shake { animation: lbShake 300ms cubic-bezier(.3,0,0,1); }
@@ -130,7 +130,7 @@ body[data-stage="app"] #login-gate .backdrop { opacity: 0; }
   color: var(--ink-faint);
   animation: lbSoftIn 420ms cubic-bezier(.3,0,0,1) 420ms backwards;
 }
-#login-gate .eyebrow .dot { color: rgba(242, 207, 143, .72); }
+#login-gate .eyebrow .dot { color: rgba(var(--rgb-gold), .72); }
 
 #login-gate .qtitle {
   display: inline-flex; margin: 8px 0 0;
@@ -172,7 +172,7 @@ body[data-stage="app"] #login-gate .backdrop { opacity: 0; }
 
 #login-gate .field label {
   display: block; margin-bottom: 8px; font-size: 13px;
-  letter-spacing: .06em; color: rgba(239, 230, 212, .86);
+  letter-spacing: .06em; color: rgba(var(--rgb-cream), .86);
 }
 #login-gate .input-wrap {
   display: flex; align-items: center; gap: 10px;
@@ -188,7 +188,7 @@ body[data-stage="app"] #login-gate .backdrop { opacity: 0; }
 #login-gate .input-wrap input::placeholder { color: var(--ink-faint); }
 #login-gate .input-wrap:focus-within { border-color: transparent; box-shadow: 0 0 0 2px var(--qfs-ring); }
 #login-gate .field.invalid .input-wrap {
-  border-color: rgba(224, 139, 160, .72); box-shadow: 0 0 0 2px rgba(224, 139, 160, .9);
+  border-color: rgba(var(--rgb-destructive), .72); box-shadow: 0 0 0 2px rgba(var(--rgb-destructive), .9);
 }
 #login-gate .err {
   margin-top: 7px; min-height: 18px; font-size: 12px; line-height: 18px;

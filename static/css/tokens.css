@@ -43,13 +43,27 @@
 }
 
 :root {
+    /* ---- 通道组：色相在这里定义一次。要带透明度就写 rgba(var(--rgb-gold), .55)，
+            整色就写 rgb(var(--rgb-gold))。换色只改这一行。 ---- */
+    --rgb-cream: 239, 230, 212;        /* 奶油月光 = #efe6d4 */
+    --rgb-dusk-cream: 243, 230, 205;   /* 宣纸字色 = #f3e6cd */
+    --rgb-gold: 242, 207, 143;         /* 暮光金 = #f2cf8f */
+    --rgb-glow: 255, 248, 232;         /* 标题渐变高光 = #fff8e8 */
+    --rgb-destructive: 224, 139, 160;  /* 暮色玫粉 = #e08ba0 */
+    --rgb-lily: 134, 187, 157;         /* 睡莲叶绿 = #86bb9d */
+    --rgb-lavender: 181, 173, 224;     /* 薰衣草倒影 = #b5ade0 */
+    --rgb-paper: 17, 38, 47;           /* 登录卡底 = #11262f */
+    --rgb-pond-deep: 13, 32, 39;       /* 深池 = #0d2027 */
+    --rgb-shadow: 0, 0, 0;             /* 投影 */
+    --rgb-shine: 255, 255, 255;        /* 顶边内高光 */
+
     /* ---- 语义层 ---- */
     --qfs-background: #0f232b;          /* 页面底色：暮色深池 */
-    --qfs-foreground: #efe6d4;          /* 奶油月光文字 */
+    --qfs-foreground: rgb(var(--rgb-cream));      /* 奶油月光文字 */
     --qfs-card: #15303b;                /* 卡片：深池青 */
-    --qfs-card-foreground: #efe6d4;
+    --qfs-card-foreground: rgb(var(--rgb-cream));
     --qfs-popover: #1a3943;
-    --qfs-popover-foreground: #efe6d4;
+    --qfs-popover-foreground: rgb(var(--rgb-cream));
     --qfs-primary: #e7c184;             /* 暮光金：唯一主色 */
     --qfs-primary-foreground: #21313a;
     --qfs-muted: #28464f;
@@ -57,23 +71,23 @@
     --qfs-border: #33525d;
     --qfs-input: #3c5a65;
     --qfs-ring: #e7c184;
-    --qfs-destructive: #e08ba0;         /* 删除：暮色玫粉，仅语义状态 */
+    --qfs-destructive: rgb(var(--rgb-destructive));  /* 删除：暮色玫粉，仅语义状态 */
 
     --qfs-radius-sm: 4px;               /* 画廊感小圆角 */
     --qfs-radius-md: 8px;
     --qfs-radius-lg: 16px;
 
     /* ---- 印象派辅助色（画作同源，仅装饰/数据点缀） ---- */
-    --pond-deep: #0d2027;
+    --pond-deep: rgb(var(--rgb-pond-deep));
     --pond-mid: #2f5f6b;
-    --lily-sage: #86bb9d;
+    --lily-sage: rgb(var(--rgb-lily));
     --water-rose: #e18aa1;
-    --water-lavender: #b5ade0;
-    --dusk-cream: #f3e6cd;
-    --gold-glint: #f2cf8f;
-    --ink-soft: rgba(239, 230, 212, .72);
-    --ink-faint: rgba(239, 230, 212, .48);
-    --paper-translucent: rgba(17, 38, 47, .72);
+    --water-lavender: rgb(var(--rgb-lavender));
+    --dusk-cream: rgb(var(--rgb-dusk-cream));
+    --gold-glint: rgb(var(--rgb-gold));
+    --ink-soft: rgba(var(--rgb-cream), .72);
+    --ink-faint: rgba(var(--rgb-cream), .48);
+    --paper-translucent: rgba(var(--rgb-paper), .72);
     --paper-translucent-strong: rgba(22, 47, 56, .88);
     --hairline: rgba(240, 228, 205, .14);
 
