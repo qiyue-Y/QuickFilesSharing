@@ -56,7 +56,7 @@ body[data-stage="login"] .bg-vignette { opacity: 0; }
   display: flex; align-items: center; justify-content: center;
   gap: 64px; padding: 48px 40px 32px;
 }
-/* 金幕铺过来时整组淡出，不留拱框在收幕瞬间硬切 */
+/* 主页面淡入的同一时刻整组淡出，不留拱框在收幕瞬间硬切 */
 #login-gate .portal, #login-gate .site-foot, #login-gate .backdrop {
   transition: opacity 520ms cubic-bezier(.32,.72,0,1);
 }
@@ -99,13 +99,6 @@ body[data-stage="app"] #login-gate .backdrop { opacity: 0; }
   background: linear-gradient(180deg, rgba(13, 32, 39, 0) 58%,
               rgba(13, 32, 39, .28) 84%, rgba(10, 24, 30, .48) 100%);
 }
-#login-gate .arch-exhibit.awake .arch {
-  animation: none;
-  transform: scale(1.03);
-  filter: brightness(1.12);
-  border-color: rgba(242, 207, 143, .92);
-  box-shadow: 0 26px 64px rgba(4, 12, 16, .55), 0 0 40px -6px rgba(242, 207, 143, .4);
-}
 #login-gate .plaque {
   margin-top: 15px; display: flex; flex-direction: column;
   align-items: center; gap: 3px;
@@ -128,9 +121,7 @@ body[data-stage="app"] #login-gate .backdrop { opacity: 0; }
   border: 1px solid var(--hairline);
   box-shadow: 0 22px 54px rgba(4, 11, 15, .46), inset 0 1px 0 rgba(243, 230, 205, .07);
   animation: lbRiseIn 420ms cubic-bezier(.3,0,0,1) 300ms backwards;
-  transition: opacity 450ms cubic-bezier(.32,.72,0,1), transform 450ms cubic-bezier(.32,.72,0,1);
 }
-#login-gate .login-card.is-leaving { opacity: 0; transform: translateY(-10px) scale(1.04); }
 #login-gate .login-card.shake { animation: lbShake 300ms cubic-bezier(.3,0,0,1); }
 
 #login-gate .eyebrow {
@@ -222,22 +213,11 @@ body[data-stage="app"] #login-gate .backdrop { opacity: 0; }
 #login-gate .enter-btn:focus-visible {
   outline: none; box-shadow: 0 0 0 2px var(--qfs-background), 0 0 0 4px var(--qfs-ring);
 }
-#login-gate .enter-btn:disabled { cursor: default; }
 #login-gate .btn-label { transition: opacity 140ms ease; }
 #login-gate .btn-arrow {
   width: 18px; height: 18px;
   transition: transform 280ms cubic-bezier(.3,0,0,1), opacity 140ms ease;
 }
-#login-gate .btn-spinner {
-  position: absolute; width: 13px; height: 13px; border-radius: 50%;
-  border: 2px solid rgba(33, 49, 58, .28); border-top-color: var(--qfs-primary-foreground);
-  opacity: 0;
-}
-#login-gate .enter-btn.is-loading { transform: none; filter: none; }
-#login-gate .enter-btn.is-loading .btn-label,
-#login-gate .enter-btn.is-loading .btn-arrow { opacity: 0; }
-#login-gate .enter-btn.is-loading .btn-spinner { opacity: 1; animation: lbSpin 700ms linear infinite; }
-@keyframes lbSpin { to { transform: rotate(360deg); } }
 
 #login-gate .card-foot {
   margin-top: 16px; display: flex; align-items: center; justify-content: space-between;
@@ -272,25 +252,6 @@ body[data-stage="app"] #login-gate .backdrop { opacity: 0; }
   50% { transform: translateX(-4px); }
   70% { transform: translateX(3px); }
   86% { transform: translateX(-1px); }
-}
-
-/* ---------- 成功转场：从拱框中心扩散并溶解的金色揭示层 ---------- */
-#login-gate .wash {
-  position: fixed; inset: 0; z-index: 5; pointer-events: none;
-  clip-path: circle(0% at 50% 42%);
-  background: radial-gradient(110% 110% at var(--rx, 50%) var(--ry, 42%),
-              color-mix(in srgb, var(--dusk-cream) 92%, white) 0%,
-              color-mix(in srgb, var(--gold-glint) 70%, var(--dusk-cream)) 24%,
-              color-mix(in srgb, var(--gold-glint) 55%, var(--pond-mid)) 42%,
-              color-mix(in srgb, var(--pond-mid) 70%, var(--dusk-cream)) 60%,
-              var(--pond-mid) 78%, var(--pond-deep) 100%);
-}
-/* 铺满后自身溶解，而不是硬切——底下 .page 已在同一时刻淡入到位 */
-#login-gate .wash.revealing { animation: lbPortalReveal 700ms cubic-bezier(.32,.72,0,1) forwards; }
-@keyframes lbPortalReveal {
-  0%   { clip-path: circle(0% at var(--rx, 50%) var(--ry, 42%)); opacity: 1; }
-  62%  { opacity: 1; }
-  100% { clip-path: circle(150% at var(--rx, 50%) var(--ry, 42%)); opacity: 0; }
 }
 
 /* reduce-motion 降级：150ms 淡出后收尾（由脚本调度） */
@@ -328,5 +289,4 @@ body[data-stage="app"] #login-gate .backdrop { opacity: 0; }
   #login-gate form,
   #login-gate .card-foot,
   #login-gate .qtitle .tl { animation: none; opacity: 1; transform: none; }
-  #login-gate .wash.revealing { animation: none; clip-path: none; }
 }

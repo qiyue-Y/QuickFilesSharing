@@ -25,7 +25,7 @@ const ctx = {
 
     setUsername(username) {
         currentUsername = username;
-        // 登录台的显隐由 login.js 自己管（它要播 1.68s 转场），这里只切主区域
+        // 登录台的显隐由 login.js 自己管（它要播 480ms 收幕），这里只切主区域
         mainGrid.hidden = !username;
         listeners.userChange.forEach(cb => cb(username));
         if (!username) return;

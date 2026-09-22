@@ -14,8 +14,9 @@ body {
 /* 布局类元素会覆盖 hidden 属性，这里强制生效 */
 [hidden] { display: none !important; }
 body.modal-open { overflow: hidden; }
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+/* 整页滚动条隐藏：内容仍可用滚轮 / 方向键滚动，弹窗内的滚动条不受影响 */
+html { scrollbar-width: none; -ms-overflow-style: none; }
+html::-webkit-scrollbar { display: none; }
 
 /* ---------- 页面容器 ---------- */
 .page {

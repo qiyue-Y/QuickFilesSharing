@@ -6,7 +6,7 @@
 
 - `http_messages_share.py` — 后端全部（Flask + waitress/gunicorn），端口固定 5000
 - `templates/index.html` — 前端骨架（216 行，只有标记，无内联 style/script）
-- `static/css/` — `tokens.css`（色板/字体栈/@font-face）、`pond.css`（背景层/粒子/标题渐变）、`ui.css`（topbar/panel/文件行/弹窗/toast/媒体查询）、`login.css`（登录台：拱框展品 + 宣纸登录卡 + 圆形揭示转场，规则全部收在 `#login-gate` 作用域内）
+- `static/css/` — `tokens.css`（色板/字体栈/@font-face）、`pond.css`（背景层/粒子/标题渐变）、`ui.css`（topbar/panel/文件行/弹窗/toast/媒体查询）、`login.css`（登录台：拱框展品 + 宣纸登录卡，规则全部收在 `#login-gate` 作用域内；转场不用整屏遮挡层，进入/退出两个方向共用 `body[data-stage]` 驱动的一组 opacity 过渡）
 - `static/js/` — 原生 ES Module，无构建无框架（12 个模块），`main.js` 汇总并按 hud→files→upload→download→board→login 顺序 `init(ctx)` 初始化；`api.js` 收口 13 个接口，`format.js` 收口格式化与文件图标，`transfer.js` 是单传输闸门，`board.js` 是留言板（5s 轮询 + `after` 增量 + 长留言折叠 / 删自己那条）。模块作用域里的函数不在 `window` 上，**事件一律在模块内 `addEventListener`（列表行用委托），不写内联 `onclick`**
 - `static/img/` `static/fonts/` — 睡莲池背景/画廊图 + 自托管 woff2
 - `files/<用户名>/` — 用户文件；`.chunks/` 分片临时目录（启动清扫 mtime>24h）；`.hashes.json` 哈希记录
