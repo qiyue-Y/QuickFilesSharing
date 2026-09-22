@@ -235,10 +235,15 @@ def get_chunk_dir(username, file_id):
 
 
 def cleanup_chunks(username, file_id):
-    """清理分片临时目录"""
+    """清理分片临时目录。取消上传时可能还有分片线程握着句柄在写（Windows 删不掉，改名也被挡），
+    重试等写线程松手；仍删不掉只记日志，留给下次启动的 sweep 兜底"""
     chunk_dir = os.path.join(FILES_DIR, username, ".chunks", file_id)
-    if os.path.exists(chunk_dir):
-        shutil.rmtree(chunk_dir)
+    for _ in range(5):
+        shutil.rmtree(chunk_dir, ignore_errors=True)
+        if not os.path.isdir(chunk_dir):
+            return
+        time.sleep(0.2)
+    log.warning("分片目录清理失败（仍被占用），留待启动清扫: %s", chunk_dir)
 
 
 def exclusive_path(user_dir, filename):

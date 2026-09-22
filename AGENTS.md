@@ -98,4 +98,5 @@ for f in static/js/*.js; do node --check "$f" || echo "FAIL $f"; done
 - `threading.Timer` 不接受 `daemon` 参数；`cmd.exe` 按 GBK 解析 .bat（本项目不使用 .bat，若引入必须纯 ASCII）
 - 局域网 http 无 secure context：`crypto.subtle` / StreamSaver / showSaveFilePicker 全不可用；复制用 `execCommand` 兜底；前端落盘只能靠浏览器原生下载
 - `send_from_directory` 以 `app.root_path` 为基准，与其他接口的 CWD 基准曾经分裂（已修，勿回退）
+- Windows 下被打开的文件删不掉，**父目录改名也不行**（Python 内置 `open()` 的句柄不带 FILE_SHARE_DELETE，`os.rename` 同样撞 WinError）——清理写入中的分片目录只能重试等句柄松手（`cleanup_chunks` 的 5×200ms 就是为此），别想用 rename 绕过（R4-P1-1 实测）
 - 本机 IDM 的浏览器集成会劫持带 `Range` 的分片下载：页面侧收到它自造的 `HTTP 204`（`connection: close`、无 `Content-Range`），服务端日志仍是 206。实测 19.5KB 单分片正常、200MB 七分片必断。测前端分片下载前先关 IDM 集成
