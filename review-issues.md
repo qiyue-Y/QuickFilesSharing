@@ -82,7 +82,7 @@
 | M-2 | 新增 `tools/check_dead_css.py`（类选择器 vs HTML/JS 引用的集合差，零命中退出码 1），当前 137 个类名零死规则 | 2026-09-22 | docs/2026-09-22.md |
 | — | `start.ps1` 一键启动 + 桌面快捷方式（UTF-8 BOM，PS 5.1 才不按 GBK 解析） | 2026-09-21 | docs/2026-09-21.md |
 | — | 下载两条分支复测（关 IDM 浏览器集成）：200 MB 分片 188.9 MB/s、1 GiB Range 110.2 MB/s | 2026-09-21 | docs/2026-09-21.md |
-| R4-P1-1 | `cleanup_chunks` 改 `rmtree(ignore_errors)` + 5×200ms 重试，abort 恒 200；**"改名 `.pending_delete`"实测被否**（Windows 下被占用文件连父目录 rename 一起挡），残留留给启动清扫 | 2026-09-22 | docs/2026-09-22.md |
+| R4-P1-1 | `cleanup_chunks` 改 `rmtree(ignore_errors)` + 5×200ms 重试，abort 恒 200；**"改名 `.pending_delete`"实测被否**（Windows 下被占用文件连父目录 rename 一起挡），残留留给启动清扫 | 2026-09-22 `e5a2be4` | docs/2026-09-22.md |
 
 ---
 
