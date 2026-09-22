@@ -1,7 +1,8 @@
 """
-简易剪切板HTTP服务
-功能：用户可以登录后查看、保存剪切板内容，以及上传/下载/删除文件
-存储：剪切板存为TXT文件，文件存储在用户目录下
+简易文件快传 + 共享留言板 HTTP 服务
+功能：用户按用户名进入后，可查看/下载/删除自己的文件，并在共享留言板上收发文本
+存储：留言板为全员共享的一块板，存 clipboards/messages.db（SQLite，标准库）；
+     文件按用户隔离存 files/<用户名>/
 运行：python http_messages_share.py
 访问：http://localhost:5000（启动后自动打开浏览器；端口被旧实例占用时会拒绝启动）
 上传限制：最大30GB（支持分片并行上传，跑满带宽）
@@ -16,6 +17,7 @@ import hashlib
 import json
 import logging
 import re
+import sqlite3
 import sys
 import os
 import time
@@ -45,10 +47,16 @@ _hash_lock = threading.Lock()       # 保护哈希记录的读改写
 _USERNAME_RE = re.compile(r"^[\w-]{1,64}$")   # \w 含中文等 Unicode 字母数字
 _FILE_ID_RE = re.compile(r"^[A-Za-z0-9]{1,64}$")
 
+# 留言板：全员共用一块板（文件仍按用户隔离），SQLite 单文件、标准库自带
+BOARD_VISIBLE = 5        # 页面只展示最近 5 条，更早的留在库里不展示
+BOARD_TEXT_MAX = 2000    # 单条留言字数上限
+_board_lock = threading.Lock()   # 串行化 INSERT，避免多线程同时写
+
 # 存储目录：锚定到 py 文件所在目录。send_from_directory 以 app.root_path（即本文件位置）为基准，
 # 其余接口若跟随进程 CWD，从其他目录启动服务时两边会分裂（列表有文件、下载 404），故统一锚定
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CLIPBOARD_DIR = os.path.join(_BASE_DIR, "clipboards")
+BOARD_DB = os.path.join(CLIPBOARD_DIR, "messages.db")   # 共享留言板；开着库时同目录会有 -wal/-shm
 FILES_DIR = os.path.join(_BASE_DIR, "files")
 LOG_DIR = os.path.join(_BASE_DIR, "logs")
 LOG_FILE = os.path.join(LOG_DIR, "app.log")
@@ -129,11 +137,83 @@ def bad_request(error):
     return jsonify({"success": False, "error": error}), 400
 
 
-def get_clipboard_path(username):
-    """获取用户剪切板文件路径"""
-    if not username or username.strip() == "":
-        username = "default"
-    return os.path.join(CLIPBOARD_DIR, f"{username}.txt")
+def board_conn():
+    conn = sqlite3.connect(BOARD_DB, timeout=5.0)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def normalize_device(device):
+    """设备名只用于展示：压平空白、去掉控制字符、限长 24"""
+    device = re.sub(r"\s+", " ", str(device or "")).strip()[:24]
+    return "".join(c for c in device if ord(c) >= 32) or "未知设备"
+
+
+def init_board():
+    """建表。留言板只有 SQLite 这一个存储，代码不读旧的 clipboards/<user>.txt"""
+    conn = board_conn()
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS messages ("
+            "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "  author TEXT NOT NULL,"
+            "  device TEXT NOT NULL,"
+            "  ts REAL NOT NULL,"
+            "  text TEXT NOT NULL)"
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def append_message(author, device, text):
+    """写入一条留言，返回自增 id"""
+    conn = board_conn()
+    try:
+        with _board_lock:
+            cur = conn.execute(
+                "INSERT INTO messages (author, device, ts, text) VALUES (?, ?, ?, ?)",
+                (author, device, time.time(), text),
+            )
+            conn.commit()
+            return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def fetch_board(after_id=None):
+    """最近 BOARD_VISIBLE 条（按时间正序）；after_id 等于当前最新 id 时只回「没变化」"""
+    conn = board_conn()
+    try:
+        stat = conn.execute("SELECT COUNT(*) AS n, MAX(id) AS latest FROM messages").fetchone()
+        total, latest = stat["n"], stat["latest"] or 0
+        if after_id is not None and after_id == latest:
+            return {"messages": [], "latest_id": latest, "total": total, "unchanged": True}
+        rows = conn.execute(
+            "SELECT id, author, device, ts, text FROM messages ORDER BY id DESC LIMIT ?",
+            (BOARD_VISIBLE,),
+        ).fetchall()
+    finally:
+        conn.close()
+    return {"messages": [dict(r) for r in reversed(rows)], "latest_id": latest, "total": total}
+
+
+def delete_message(message_id, username):
+    """删除一条留言，作者必须与请求里的 username 一致。返回 'ok' / 'missing' / 'forbidden'"""
+    conn = board_conn()
+    try:
+        with _board_lock:
+            row = conn.execute("SELECT author FROM messages WHERE id = ?", (message_id,)).fetchone()
+            if row is None:
+                return "missing"
+            if row["author"] != username:
+                return "forbidden"
+            conn.execute("DELETE FROM messages WHERE id = ?", (message_id,))
+            conn.commit()
+            return "ok"
+    finally:
+        conn.close()
 
 
 def get_user_files_dir(username):
@@ -220,24 +300,6 @@ def merge_chunks(username, file_id, original_filename, total_chunks):
     # 清理分片
     cleanup_chunks(username, file_id)
     return final_name, hasher.hexdigest()
-
-
-def read_clipboard(username):
-    """读取用户剪切板内容"""
-    path = get_clipboard_path(username)
-    if os.path.exists(path):
-        with open(path, 'r', encoding='utf-8') as f:
-            return f.read()
-    return ""
-
-
-def write_clipboard(username, content):
-    """保存剪切板内容（临时文件 + 原子替换，防中途崩溃截断原文件）"""
-    path = get_clipboard_path(username)
-    tmp_path = path + ".tmp"
-    with open(tmp_path, 'w', encoding='utf-8') as f:
-        f.write(content)
-    os.replace(tmp_path, path)
 
 
 class HashingWriter:
@@ -448,9 +510,9 @@ def _request_end(resp):
     content_length = resp.headers.get("Content-Length")
     size_text = human_size(int(content_length)) if content_length else "-"
     byte_range = request.headers.get("Range")
-    # 页面与 JSON 接口禁缓存，防止浏览器/后退缓存给出旧页面旧列表；
+    # 页面与静态资源禁缓存（靠 ETag 重校验取 304），防止刷新后拿到旧页面旧 CSS/JS；
     # /api/download* 的 ETag/Last-Modified 是断点续传在用的，不能碰
-    if request.path == "/":
+    if request.path == "/" or request.path.startswith("/static/"):
         resp.headers["Cache-Control"] = "no-cache"
     elif request.path.startswith("/api/") and request.path not in ("/api/download", "/api/download/chunk"):
         resp.headers["Cache-Control"] = "no-store"
@@ -485,25 +547,51 @@ def index():
     return render_template('index.html')
 
 
-@app.route('/api/clipboard', methods=['GET'])
-def get_clipboard():
-    """获取剪切板内容"""
+@app.route('/api/board', methods=['GET'])
+def get_board():
+    """共享留言板：任何人登录看到的都是同一块板，只回最近 BOARD_VISIBLE 条"""
     username = normalize_username(request.args.get('username', 'default'))
     if username is None:
         return bad_request("用户名不合法")
-    content = read_clipboard(username)
-    return jsonify({"content": content})
+    after = request.args.get('after', '')
+    after_id = int(after) if after.isdigit() else None
+    return jsonify(fetch_board(after_id))
 
 
-@app.route('/api/clipboard', methods=['POST'])
-def post_clipboard():
-    """保存剪切板内容"""
-    data = request.json
+@app.route('/api/board', methods=['POST'])
+def post_board():
+    """发一条留言（全员可见）"""
+    data = request.json or {}
     username = normalize_username(data.get('username', 'default'))
     if username is None:
         return bad_request("用户名不合法")
-    content = data.get('content', '')
-    write_clipboard(username, content)
+    text = str(data.get('text') or '').strip()
+    if not text:
+        return bad_request("留言不能为空")
+    if len(text) > BOARD_TEXT_MAX:
+        return bad_request(f"留言过长，上限 {BOARD_TEXT_MAX} 字")
+    device = normalize_device(data.get('device'))
+    message_id = append_message(username, device, text)
+    log.info("新留言: user=%s device=%s id=%d 字数=%d", username, device, message_id, len(text))
+    return jsonify({"success": True, "id": message_id})
+
+
+@app.route('/api/board/delete', methods=['POST'])
+def delete_board():
+    """删除一条留言，只能删自己发的（作者须与请求里的 username 一致）"""
+    data = request.json or {}
+    username = normalize_username(data.get('username', 'default'))
+    message_id = data.get('id')
+    if username is None or not isinstance(message_id, int) or message_id < 1:
+        return bad_request("参数不合法")
+    result = delete_message(message_id, username)
+    if result == "missing":
+        log.warning("删除留言失败(不存在): user=%s id=%d", username, message_id)
+        return jsonify({"success": False, "error": "留言不存在或已被删除"}), 404
+    if result == "forbidden":
+        log.warning("删除留言被拒(非本人): user=%s id=%d", username, message_id)
+        return jsonify({"success": False, "error": "只能删除自己发送的留言"}), 403
+    log.info("留言已删除: user=%s id=%d", username, message_id)
     return jsonify({"success": True})
 
 
@@ -784,6 +872,7 @@ def list_files():
             result.append({
                 "name": name,
                 "size": signature[0] if signature else 0,
+                "mtime": signature[1] if signature else 0,
                 HASH_ALGO: known_hash(records.get(name), signature),
             })
     result.sort(key=lambda x: x["name"])
@@ -826,6 +915,12 @@ def delete_file():
         log.exception("删除文件异常: %s", request.full_path.rstrip("?"))
         return jsonify({"success": False, "error": "删除失败，详情见服务端日志"})
 
+
+
+try:
+    init_board()
+except Exception:
+    log.exception("留言板初始化失败（建表），留言接口将不可用")
 
 
 def check_port_in_use(port, timeout=1.0):

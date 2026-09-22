@@ -1,0 +1,332 @@
+/* ============================================================
+   login.css — 登录页（暮色画廊入口）
+   来自设计稿 `QFS · 登录.html` 的页面私有样式，收在 #login-gate 作用域下，
+   避免与主页面同名的 .eyebrow / .qtitle / .footer 相互污染。
+   背景不自己带图：整站只有 pond.css 的 .bg-layer 一层池面，登录态靠
+   body[data-stage="login"] 把主内容压住、用 .backdrop 三层蒙版加深画面。
+   ============================================================ */
+
+#login-gate.login-stage {
+  position: fixed; inset: 0; z-index: 45;
+  height: 100dvh;
+  isolation: isolate;
+  overflow: hidden;
+  color: var(--qfs-foreground);
+  font-family: var(--qfs-font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+#login-gate[hidden] { display: none; }
+#login-gate h1, #login-gate p, #login-gate figure { margin: 0; }
+#login-gate button, #login-gate input { font: inherit; }
+
+body.login-pending { overflow: hidden; }
+
+/* ---------- 登录态：主内容与页面蒙版退到背景后，只留共用的 .bg-layer 池面 ---------- */
+body[data-stage="login"] .page { opacity: 0; pointer-events: none; }
+body[data-stage="login"] .bg-mist,
+body[data-stage="login"] .bg-vignette { opacity: 0; }
+
+/* ---------- 内滚区域：仅此处滚动，背景与揭示层固定 ---------- */
+#login-gate .stage-scroll {
+  position: relative; z-index: 1;
+  height: 100%;
+  display: flex; flex-direction: column;
+  overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ---------- 登录态蒙版：压在共用池面上加深，淡出时机见下面 .portal 一组 ---------- */
+#login-gate .backdrop { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+#login-gate .veil { position: absolute; inset: 0; pointer-events: none; }
+#login-gate .veil-flat { background: rgba(13, 32, 39, .66); }
+#login-gate .vignette {
+  background: radial-gradient(92% 84% at 50% 42%,
+              rgba(13, 32, 39, 0) 38%, rgba(7, 18, 23, .62) 100%);
+}
+#login-gate .side-light {
+  background: linear-gradient(100deg, rgba(7, 18, 23, .42) 0%,
+              rgba(13, 32, 39, 0) 42%, rgba(13, 32, 39, 0) 66%,
+              rgba(7, 18, 23, .22) 100%);
+}
+
+/* ---------- 中央两列 ---------- */
+#login-gate .portal {
+  position: relative; z-index: 1;
+  flex: 1; width: 100%; max-width: 1080px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  gap: 64px; padding: 48px 40px 32px;
+}
+/* 金幕铺过来时整组淡出，不留拱框在收幕瞬间硬切 */
+#login-gate .portal, #login-gate .site-foot, #login-gate .backdrop {
+  transition: opacity 520ms cubic-bezier(.32,.72,0,1);
+}
+body[data-stage="app"] #login-gate .portal,
+body[data-stage="app"] #login-gate .site-foot,
+body[data-stage="app"] #login-gate .backdrop { opacity: 0; }
+
+/* ---------- 左：拱框展品 ---------- */
+#login-gate .arch-exhibit {
+  width: 320px; flex: none;
+  animation: lbRiseIn 500ms cubic-bezier(.3,0,0,1) 180ms backwards;
+}
+#login-gate .arch {
+  position: relative; height: 424px; padding: 7px;
+  border: 1px solid rgba(242, 207, 143, .55);
+  border-radius: 50% 50% 6px 6px / 38% 38% 6px 6px;
+  background: rgba(13, 32, 39, .5);
+  animation: lbArchBreathe 5.6s ease-in-out 1.4s infinite;
+  transition: transform 450ms cubic-bezier(.32,.72,0,1),
+              filter 450ms cubic-bezier(.32,.72,0,1),
+              border-color 450ms ease, box-shadow 450ms ease;
+}
+@keyframes lbArchBreathe {
+  0%, 100% { box-shadow: 0 22px 54px rgba(4, 12, 16, .5), 0 0 22px -8px rgba(242, 207, 143, 0); }
+  50%      { box-shadow: 0 24px 60px rgba(4, 12, 16, .55), 0 0 30px -8px rgba(242, 207, 143, .22); }
+}
+#login-gate .arch-inner {
+  position: relative; width: 100%; height: 100%;
+  overflow: hidden;
+  border-radius: 50% 50% 4px 4px / 38% 38% 4px 4px;
+}
+/* 放大 + 顶部锚点：把右下角水印裁出拱框，主体睡莲仍居穹顶下 */
+#login-gate .arch-inner img {
+  display: block; width: 100%; height: 100%;
+  object-fit: cover; object-position: center 30%;
+  transform: scale(1.08); transform-origin: center top;
+}
+#login-gate .arch-inner::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(13, 32, 39, 0) 58%,
+              rgba(13, 32, 39, .28) 84%, rgba(10, 24, 30, .48) 100%);
+}
+#login-gate .arch-exhibit.awake .arch {
+  animation: none;
+  transform: scale(1.03);
+  filter: brightness(1.12);
+  border-color: rgba(242, 207, 143, .92);
+  box-shadow: 0 26px 64px rgba(4, 12, 16, .55), 0 0 40px -6px rgba(242, 207, 143, .4);
+}
+#login-gate .plaque {
+  margin-top: 15px; display: flex; flex-direction: column;
+  align-items: center; gap: 3px;
+}
+#login-gate .plaque-latin {
+  font-family: var(--qfs-font-display); font-style: italic;
+  font-size: 17px; color: var(--dusk-cream); letter-spacing: .02em;
+}
+#login-gate .plaque-cn {
+  font-size: 11px; letter-spacing: .12em; padding-left: .12em; color: var(--ink-faint);
+}
+
+/* ---------- 右：宣纸登录卡 ---------- */
+#login-gate .login-card {
+  width: 400px; flex: none; padding: 44px 44px 30px;
+  border-radius: 16px;
+  background: var(--paper-translucent);
+  -webkit-backdrop-filter: blur(16px) saturate(1.06);
+  backdrop-filter: blur(16px) saturate(1.06);
+  border: 1px solid var(--hairline);
+  box-shadow: 0 22px 54px rgba(4, 11, 15, .46), inset 0 1px 0 rgba(243, 230, 205, .07);
+  animation: lbRiseIn 420ms cubic-bezier(.3,0,0,1) 300ms backwards;
+  transition: opacity 450ms cubic-bezier(.32,.72,0,1), transform 450ms cubic-bezier(.32,.72,0,1);
+}
+#login-gate .login-card.is-leaving { opacity: 0; transform: translateY(-10px) scale(1.04); }
+#login-gate .login-card.shake { animation: lbShake 300ms cubic-bezier(.3,0,0,1); }
+
+#login-gate .eyebrow {
+  font-family: var(--qfs-font-display); font-size: 12px; font-weight: 500;
+  text-transform: uppercase; letter-spacing: .3em; padding-left: .3em;
+  color: var(--ink-faint);
+  animation: lbSoftIn 420ms cubic-bezier(.3,0,0,1) 420ms backwards;
+}
+#login-gate .eyebrow .dot { color: rgba(242, 207, 143, .72); }
+
+#login-gate .qtitle {
+  display: inline-flex; margin: 8px 0 0;
+  font-family: var(--qfs-font-display); font-size: 56px; line-height: 1.06;
+  font-weight: 600; letter-spacing: .08em;
+}
+#login-gate .qtitle .tl {
+  display: inline-block; padding: 0 .04em;
+  background: linear-gradient(102deg, var(--dusk-cream) 26%,
+              color-mix(in srgb, var(--dusk-cream) 88%, white) 44%,
+              var(--gold-glint) 50%, var(--dusk-cream) 66%);
+  background-size: 260% 100%;
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+  animation: lbLetterIn 500ms cubic-bezier(.3,0,0,1) backwards,
+             lbSheen 8s ease-in-out infinite;
+}
+#login-gate .qtitle .tl:nth-child(1) { animation-delay: 460ms, 1.3s; padding-left: .12em; }
+#login-gate .qtitle .tl:nth-child(2) { animation-delay: 520ms, 1.42s; }
+#login-gate .qtitle .tl:nth-child(3) { animation-delay: 580ms, 1.54s; padding-right: .08em; }
+@supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+  #login-gate .qtitle .tl { color: var(--dusk-cream); -webkit-text-fill-color: var(--dusk-cream); }
+}
+@keyframes lbLetterIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes lbSheen {
+  0%   { background-position: 120% 0; }
+  68%  { background-position: 120% 0; }
+  100% { background-position: -40% 0; }
+}
+
+#login-gate .welcome {
+  margin-top: 14px; font-size: 15px; color: var(--ink-soft);
+  animation: lbSoftIn 420ms cubic-bezier(.3,0,0,1) 560ms backwards;
+}
+#login-gate form { margin-top: 26px; animation: lbSoftIn 420ms cubic-bezier(.3,0,0,1) 620ms backwards; }
+
+#login-gate .field label {
+  display: block; margin-bottom: 8px; font-size: 13px;
+  letter-spacing: .06em; color: rgba(239, 230, 212, .86);
+}
+#login-gate .input-wrap {
+  display: flex; align-items: center; gap: 10px;
+  height: 48px; padding: 0 14px; border-radius: 8px;
+  border: 1px solid var(--qfs-border); background: rgba(9, 23, 30, .62);
+  transition: box-shadow 140ms ease, border-color 140ms ease;
+}
+#login-gate .input-wrap svg { width: 18px; height: 18px; flex: none; color: var(--ink-faint); }
+#login-gate .input-wrap input {
+  flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; outline: 0;
+  background: transparent; color: var(--qfs-foreground); font-size: 15px;
+}
+#login-gate .input-wrap input::placeholder { color: var(--ink-faint); }
+#login-gate .input-wrap:focus-within { border-color: transparent; box-shadow: 0 0 0 2px var(--qfs-ring); }
+#login-gate .field.invalid .input-wrap {
+  border-color: rgba(224, 139, 160, .72); box-shadow: 0 0 0 2px rgba(224, 139, 160, .9);
+}
+#login-gate .err {
+  margin-top: 7px; min-height: 18px; font-size: 12px; line-height: 18px;
+  color: var(--qfs-destructive); visibility: hidden;
+}
+#login-gate .field.invalid .err { visibility: visible; }
+
+/* 记住我：勾选框本体是 ui.css 的 .qcheck 组件，这里只管它在卡片里的位置 */
+#login-gate .remember { margin-top: 14px; }
+
+#login-gate .enter-btn {
+  position: relative; margin-top: 20px; width: 100%; height: 48px;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding-left: .12em; border: 0; border-radius: 8px;
+  background: var(--qfs-primary); color: var(--qfs-primary-foreground);
+  font-size: 15.5px; font-weight: 600; letter-spacing: .12em; cursor: pointer;
+  transition: transform 140ms cubic-bezier(.3,0,0,1), filter 140ms ease, box-shadow 140ms ease;
+}
+#login-gate .enter-btn:hover { filter: brightness(1.05); transform: translateY(-1px); }
+#login-gate .enter-btn:hover .btn-arrow { transform: translateX(2px); }
+#login-gate .enter-btn:active { transform: scale(.985); filter: brightness(.98); }
+#login-gate .enter-btn:focus-visible {
+  outline: none; box-shadow: 0 0 0 2px var(--qfs-background), 0 0 0 4px var(--qfs-ring);
+}
+#login-gate .enter-btn:disabled { cursor: default; }
+#login-gate .btn-label { transition: opacity 140ms ease; }
+#login-gate .btn-arrow {
+  width: 18px; height: 18px;
+  transition: transform 280ms cubic-bezier(.3,0,0,1), opacity 140ms ease;
+}
+#login-gate .btn-spinner {
+  position: absolute; width: 13px; height: 13px; border-radius: 50%;
+  border: 2px solid rgba(33, 49, 58, .28); border-top-color: var(--qfs-primary-foreground);
+  opacity: 0;
+}
+#login-gate .enter-btn.is-loading { transform: none; filter: none; }
+#login-gate .enter-btn.is-loading .btn-label,
+#login-gate .enter-btn.is-loading .btn-arrow { opacity: 0; }
+#login-gate .enter-btn.is-loading .btn-spinner { opacity: 1; animation: lbSpin 700ms linear infinite; }
+@keyframes lbSpin { to { transform: rotate(360deg); } }
+
+#login-gate .card-foot {
+  margin-top: 16px; display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; font-size: 12px; letter-spacing: .08em; color: var(--ink-faint);
+  animation: lbSoftIn 420ms cubic-bezier(.3,0,0,1) 680ms backwards;
+}
+#login-gate .card-clear {
+  border: 0; padding: 0; background: none; cursor: pointer;
+  font-size: 12px; letter-spacing: .08em; color: var(--ink-faint);
+  text-decoration: underline; text-underline-offset: 3px;
+}
+#login-gate .card-clear:hover { color: var(--dusk-cream); }
+#login-gate .card-clear[hidden] { display: none; }
+
+#login-gate .site-foot {
+  position: relative; z-index: 1; padding: 0 24px 24px;
+  text-align: center; font-size: 12px; letter-spacing: .08em; color: var(--ink-faint);
+}
+
+/* ---------- 动效关键帧 ---------- */
+@keyframes lbRiseIn {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes lbSoftIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes lbShake {
+  15% { transform: translateX(-6px); }
+  32% { transform: translateX(5px); }
+  50% { transform: translateX(-4px); }
+  70% { transform: translateX(3px); }
+  86% { transform: translateX(-1px); }
+}
+
+/* ---------- 成功转场：从拱框中心扩散并溶解的金色揭示层 ---------- */
+#login-gate .wash {
+  position: fixed; inset: 0; z-index: 5; pointer-events: none;
+  clip-path: circle(0% at 50% 42%);
+  background: radial-gradient(110% 110% at var(--rx, 50%) var(--ry, 42%),
+              color-mix(in srgb, var(--dusk-cream) 92%, white) 0%,
+              color-mix(in srgb, var(--gold-glint) 70%, var(--dusk-cream)) 24%,
+              color-mix(in srgb, var(--gold-glint) 55%, var(--pond-mid)) 42%,
+              color-mix(in srgb, var(--pond-mid) 70%, var(--dusk-cream)) 60%,
+              var(--pond-mid) 78%, var(--pond-deep) 100%);
+}
+/* 铺满后自身溶解，而不是硬切——底下 .page 已在同一时刻淡入到位 */
+#login-gate .wash.revealing { animation: lbPortalReveal 700ms cubic-bezier(.32,.72,0,1) forwards; }
+@keyframes lbPortalReveal {
+  0%   { clip-path: circle(0% at var(--rx, 50%) var(--ry, 42%)); opacity: 1; }
+  62%  { opacity: 1; }
+  100% { clip-path: circle(150% at var(--rx, 50%) var(--ry, 42%)); opacity: 0; }
+}
+
+/* reduce-motion 降级：150ms 淡出后收尾（由脚本调度） */
+#login-gate.rm-out .portal,
+#login-gate.rm-out .site-foot { opacity: 0; transition: opacity 150ms ease; }
+
+/* ---------- 窄屏：单列，拱窗缩小置顶 ---------- */
+@media (max-width: 899px) {
+  #login-gate .portal { flex-direction: column; gap: 24px; padding: 36px 20px 24px; }
+  #login-gate .arch-exhibit { width: 168px; }
+  #login-gate .arch { height: 222px; padding: 6px; }
+  #login-gate .plaque { margin-top: 11px; }
+  #login-gate .plaque-latin { font-size: 15px; }
+  #login-gate .plaque-cn { font-size: 10.5px; }
+  #login-gate .login-card { width: min(92vw, 400px); padding: 32px 28px 22px; }
+  #login-gate .qtitle { font-size: 46px; }
+}
+@media (max-width: 560px) {
+  #login-gate .portal { gap: 20px; padding: 28px 16px 20px; }
+  #login-gate .arch-exhibit { width: 150px; }
+  #login-gate .arch { height: 198px; }
+  #login-gate .login-card { padding: 28px 22px 20px; }
+  #login-gate .qtitle { font-size: 42px; }
+  #login-gate .eyebrow { font-size: 11px; }
+  #login-gate .site-foot { font-size: 11px; padding-bottom: 20px; }
+}
+
+/* ---------- 降低动态偏好 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  #login-gate .arch { animation: none; }
+  #login-gate .arch-exhibit,
+  #login-gate .login-card,
+  #login-gate .eyebrow,
+  #login-gate .welcome,
+  #login-gate form,
+  #login-gate .card-foot,
+  #login-gate .qtitle .tl { animation: none; opacity: 1; transform: none; }
+  #login-gate .wash.revealing { animation: none; clip-path: none; }
+}

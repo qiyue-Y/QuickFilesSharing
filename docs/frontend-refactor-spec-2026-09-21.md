@@ -1,6 +1,6 @@
 # 前端重构 spec — 睡莲池皮肤 + 无构建模块拆分
 
-- 状态：**待审核**，未获批准前不改任何代码。
+- 状态：**已实施**（2026-09-21，P0~P4 完成并实测，实施记录见 [`2026-09-21.md`](2026-09-21.md)）。遗留项转 `review-issues.md`：`UI-D1 剪切板消息流`、`R4-P1-1 abort 争抢分片目录`。
 - 定稿依据：`<HOME>\Desktop\QFS · 睡莲池.zip` → `pages/QFS · 睡莲池.html`（1492 行），资产在 `qfs-waterlilies/assets/`（2 张 jpg + 3 个 woff2）。
 - 现状：`templates/index.html` 1333 行 = CSS 455 行(8~463) + HTML 78 行(465~543) + JS 787 行(544~1331)，30 个函数、13 个接口。
 - 路线：**Flask `static/` + 原生 ES Module，无构建、无框架**。部署命令不变（`.venv/Scripts/python.exe http_messages_share.py`）。
@@ -117,8 +117,11 @@ templates/index.html  ~180 行    骨架
 - 取消按钮位置：设计稿没有全局取消栏，改为**活跃行 `.fp-meta` 行尾一个 `.qbtn.sm.danger`「取消」**，只在 `onActiveChange` 时插入/移除。语义等价，且天然不会出现"按钮在但传输已结束"的残留态。
 - `beforeunload`：有 active 传输时提示确认（现有代码没有，成本低，值得加）。
 
-## 7. 登录区占位契约（D3）
+## 7. 登录区占位契约（D3）— 已被正式设计稿取代（2026-09-21）
 
+- 实际落地：`QFS · 登录.html` 到位后，占位面板换成整屏登录台（`.backdrop` 三层蒙版 + 拱框展品 + 宣纸登录卡 + `.wash` 圆形揭示），样式在 `static/css/login.css`、时序在 `static/js/login.js`；登录台的显隐改由 `login.js` 负责，`main.js` 只管 `#mainGrid`。记录见 [`2026-09-21.md`](2026-09-21.md)。
+- 与设计稿的两处出入：设计稿引用的 `assets/monet-lily-bloom.jpg` 未随 zip 提供（zip 里 `assets/` 是空目录），拱框暂用主页面同一张 `monet-lilies.jpg`；设计稿卡片里没有"记住我"，为保留既有功能在输入框与"进入"按钮之间补了一行，并把"清除记住的用户"做成 `.card-foot` 里的下划线文字链（仅在有记住的用户时显示）。
+- 下面是当时的占位契约，保留备查：
 - `templates/index.html` 里独立 `<section id="login-gate">…</section>`，未登录时它是唯一可见主体（`.page > .grid2` 与 `.hero` 加 `hidden`），登录后反过来。
 - 现版本先放**最简占位**：一个 `.panel` 卡，内含 `#usernameInput`(`.pop-input` 样式) + 「登录」(`.qbtn.primary`) + `#rememberUser` 复选框 + 「清除记住的用户」。视觉上全部来自已有组件，不出新样式，等设计稿来了整块替换。
 - `js/login.js` 契约固定：`init(ctx)` 内部只管这三个元素 + `Enter` 提交 + `autoLogin()`；对外只经 `ctx.setUsername(name)`。**换设计稿时 JS 零改动**，只动 `<section>` 内容和 `.login-*` CSS。
