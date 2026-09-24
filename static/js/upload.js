@@ -23,18 +23,24 @@ function onPick() {
     if (files.length) uploadFiles(files);
 }
 
-/** 拖放上传（整个文件库面板都是投放区） */
+/** 整页拖放：任何位置松手都进上传队列；不拦的话浏览器会直接打开文件顶掉页面 */
 function initDrag() {
-    const panel = document.getElementById('files-panel');
-    ['dragenter', 'dragover'].forEach(ev =>
-        panel.addEventListener(ev, e => { e.preventDefault(); panel.classList.add('dragover'); }));
-    ['dragleave', 'drop'].forEach(ev =>
-        panel.addEventListener(ev, e => {
-            e.preventDefault();
-            if (ev === 'dragleave' && panel.contains(e.relatedTarget)) return;
-            panel.classList.remove('dragover');
-        }));
-    panel.addEventListener('drop', e => {
+    const hasFiles = e => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+    const canDrop = e => hasFiles(e) && !!ctxRef.getUsername();
+
+    document.addEventListener('dragover', e => {
+        if (!canDrop(e)) return;
+        e.preventDefault();
+        document.body.classList.add('dragging');
+    });
+    document.addEventListener('dragleave', e => {
+        if (e.relatedTarget) return;   // 只是穿梭到子元素，没出窗口
+        document.body.classList.remove('dragging');
+    });
+    document.addEventListener('drop', e => {
+        document.body.classList.remove('dragging');
+        if (!canDrop(e)) return;
+        e.preventDefault();
         const files = Array.from(e.dataTransfer.files || []);
         if (files.length) uploadFiles(files);
     });

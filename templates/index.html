@@ -82,7 +82,7 @@
                         <h2>文件库</h2>
                         <p class="zsub">沉在池底的东西，捞起就能带走 · 同一时刻只跑一个传输</p>
                     </div>
-                    <label class="qbtn primary" id="uploadBtn" title="支持 30GB 以内的文件，可多选，也可拖拽到此处">
+                    <label class="qbtn primary" id="uploadBtn" title="支持 30GB 以内的文件，可多选，或拖到页面任意位置">
                         上传文件
                         <input type="file" id="fileInput" multiple>
                     </label>
@@ -160,10 +160,9 @@
                                     <path d="M5.2 19.6c.9-3.5 3.5-5.1 6.8-5.1s5.9 1.6 6.8 5.1"></path>
                                 </svg>
                                 <input id="usernameInput" name="username" type="text"
-                                       placeholder="输入用户名，如 用户"
+                                       placeholder="输入用户名，留空 = default"
                                        autocomplete="off" spellcheck="false" maxlength="32">
                             </div>
-                            <p class="err" id="loginError" role="alert"></p>
                         </div>
 
                         <label class="qcheck remember"><input type="checkbox" id="rememberUserLogin"><span class="qcheck-box" aria-hidden="true"></span><span class="qcheck-text">记住我，下次自动进入</span></label>
@@ -202,8 +201,12 @@
             <div class="verify-list" id="hashModalCmds"></div>
             <div class="verify-title">命令行下载（支持断点续传，大文件推荐）</div>
             <div class="verify-list" id="hashModalDl"></div>
-            <div class="verify-hint">服务器地址取自当前页面地址栏；若本机用 localhost 打开，发给别人前换成局域网 IP。</div>
+            <div class="verify-hint">下载命令里的地址已自动换成服务器局域网 IP（本页用 localhost 打开时）；多网卡选错时手动改命令里的 IP。</div>
         </div>
+    </div>
+
+    <div class="drop-veil" aria-hidden="true">
+        <div class="drop-veil-box">松开鼠标 · 上传到文件库</div>
     </div>
 
     <div class="toast-host" id="toastHost" aria-live="polite"></div>

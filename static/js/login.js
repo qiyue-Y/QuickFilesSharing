@@ -8,10 +8,7 @@ import { toast } from './ui.js';
 import { rememberUser, forgetUser, rememberedUser } from './hud.js';
 
 const stage = document.getElementById('login-gate');
-const card = document.getElementById('loginCard');
-const field = document.getElementById('loginField');
 const input = document.getElementById('usernameInput');
-const err = document.getElementById('loginError');
 const rememberBox = document.getElementById('rememberUserLogin');
 const clearBtn = document.getElementById('clearRememberBtn');
 
@@ -23,21 +20,6 @@ let ctxRef = null;
 
 function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
 function clearTimers() { timers.forEach(clearTimeout); timers = []; }
-
-function showError() {
-    field.classList.add('invalid');
-    card.classList.remove('shake');
-    void card.offsetWidth;          // 重启 shake 动画
-    card.classList.add('shake');
-    later(() => card.classList.remove('shake'), 320);
-    err.textContent = '请输入用户名';
-    input.focus();
-}
-
-function clearError() {
-    field.classList.remove('invalid');
-    err.textContent = '';
-}
 
 function hideStage() {
     clearTimers();
@@ -53,9 +35,7 @@ function resetStage() {
     stage.hidden = false;
     document.body.dataset.stage = 'login';
     stage.classList.remove('rm-out');
-    card.classList.remove('shake');
     input.value = '';
-    clearError();
     syncClearBtn();
     document.body.classList.add('login-pending');
     input.focus();
@@ -89,12 +69,8 @@ export function init(ctx) {
     document.getElementById('loginForm').addEventListener('submit', e => {
         e.preventDefault();
         if (busy) return;
-        const username = input.value.trim();
-        if (!username) { showError(); return; }
-        clearError();
-        enter(username);
+        enter(input.value.trim() || 'default');
     });
-    input.addEventListener('input', () => { if (field.classList.contains('invalid')) clearError(); });
 
     clearBtn.addEventListener('click', () => {
         forgetUser();

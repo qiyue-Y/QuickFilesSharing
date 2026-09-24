@@ -858,6 +858,16 @@ def disk_info():
     return jsonify({"success": True, "free": usage.free, "total": usage.total})
 
 
+@app.route('/api/server-addr', methods=['GET'])
+def server_addr():
+    """返回服务器局域网 IP，供前端拼"发给别人"的下载命令（页面用 localhost 打开时替换主机名）"""
+    ip = get_primary_lan_ip()
+    if not ip:
+        lan_ips = get_lan_ips()
+        ip = lan_ips[0] if lan_ips else None
+    return jsonify({"ip": ip})
+
+
 @app.route('/api/files', methods=['GET'])
 def list_files():
     """获取用户的文件列表（含文件大小与校验码，排除隐藏文件）"""

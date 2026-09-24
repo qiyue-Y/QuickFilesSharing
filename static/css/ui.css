@@ -211,10 +211,6 @@ label.qbtn.primary input { position: absolute; width: 1px; height: 1px; opacity:
   box-shadow: 0 18px 44px -26px rgba(var(--rgb-shadow), .45);
   transition: border-color .25s ease, box-shadow .25s ease;
 }
-.panel.dragover {
-  border-color: rgba(var(--rgb-gold), .65);
-  box-shadow: 0 0 0 3px rgba(var(--rgb-gold), .14), 0 18px 44px -26px rgba(var(--rgb-shadow), .45);
-}
 .panel-head {
   display: flex; justify-content: space-between; align-items: flex-start;
   gap: 12px; flex-wrap: wrap;
@@ -258,9 +254,13 @@ label.qbtn.primary input { position: absolute; width: 1px; height: 1px; opacity:
 .fsub {
   margin-top: 2px; font-size: 11.5px; color: var(--ink-faint);
   font-variant-numeric: tabular-nums;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: flex; min-width: 0;
 }
+.fsub-pre { flex: none; white-space: nowrap; }
 .fhash {
+  /* 占剩余宽度、内部逐字符省略：button 在 Chrome 里强制 inline-block，只能靠自身 ellipsis 截断 */
+  flex: 0 1 auto; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   border: 0; background: none; padding: 0; margin: 0;
   font: inherit; color: inherit; cursor: pointer;
   border-bottom: 1px dotted rgba(var(--rgb-gold), .45);
@@ -390,6 +390,21 @@ label.qbtn.primary input { position: absolute; width: 1px; height: 1px; opacity:
 }
 .sendrow .qbtn { flex: none; }
 
+/* ---------- 拖放上传提示层（body.dragging 时淡入，不挡鼠标） ---------- */
+.drop-veil {
+  position: fixed; inset: 0; z-index: 46; pointer-events: none;
+  display: grid; place-items: center;
+  background: rgba(var(--rgb-shadow), .38);
+  opacity: 0; transition: opacity .18s ease;
+}
+body.dragging .drop-veil { opacity: 1; }
+.drop-veil-box {
+  padding: 26px 44px; border: 2px dashed rgba(var(--rgb-gold), .65);
+  border-radius: var(--qfs-radius-lg);
+  background: rgba(var(--rgb-shadow), .55);
+  color: var(--dusk-cream); font-size: 15px; letter-spacing: .08em;
+}
+
 /* ---------- 哈希弹窗（spec §4.3） ---------- */
 .modal-mask {
   position: fixed; inset: 0; z-index: 40;
@@ -451,7 +466,8 @@ label.qbtn.primary input { position: absolute; width: 1px; height: 1px; opacity:
   padding: 6px 6px 6px 12px;
 }
 .verify-cmd code {
-  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1; min-width: 0;
+  overflow-wrap: anywhere;
   font-family: var(--qfs-font-mono); font-size: 11.5px; color: var(--dusk-cream);
 }
 .verify-hint { margin: 10px 0 0; font-size: 11px; line-height: 1.75; color: var(--ink-faint); }

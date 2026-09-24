@@ -1,6 +1,6 @@
 /* files.js — 文件列表渲染、删除、文件信息弹窗（spec §4.1 / §4.3） */
 
-import { api } from './api.js';
+import { api, shareOrigin } from './api.js';
 import { formatSize, formatDate, escapeHtml, fileIcon } from './format.js';
 import { toast, copyText, openModal, closeModal, closeOnBackdrop } from './ui.js';
 
@@ -26,8 +26,8 @@ function verifyCommands(filename) {
     ]);
 }
 
-function downloadCommands(username, filename) {
-    const url = `${location.origin}/api/download?username=${encodeURIComponent(username)}&filename=${encodeURIComponent(filename)}`;
+function downloadCommands(username, filename, origin) {
+    const url = `${origin}/api/download?username=${encodeURIComponent(username)}&filename=${encodeURIComponent(filename)}`;
     return cmdRows([
         ['Windows · CMD', `curl -C - -o "${filename}" "${url}"`],
         ['Windows · PowerShell', `curl.exe -C - -o "${filename}" "${url}"`],
@@ -82,13 +82,16 @@ export function makeRow({ name, size, mtime, sha256 }) {
     fname.title = name;
 
     const sub = cell.querySelector('.fsub');
-    sub.textContent = `${formatSize(size)} · ${formatDate(mtime)} · `;
+    const pre = document.createElement('span');
+    pre.className = 'fsub-pre';
+    pre.textContent = `${formatSize(size)} · ${formatDate(mtime)} · `;
+    sub.appendChild(pre);
     const hashBtn = document.createElement('button');
     hashBtn.type = 'button';
     hashBtn.className = 'fhash';
     if (sha256) {
-        hashBtn.textContent = `SHA-256: ${sha256.slice(0, 12)}…`;
-        hashBtn.title = '点击查看完整校验码与命令行下载';
+        hashBtn.textContent = `SHA-256: ${sha256}`;
+        hashBtn.title = `SHA-256: ${sha256}\n点击查看完整校验码与命令行下载`;
     } else {
         hashBtn.textContent = '校验码未记录，点击计算';
         hashBtn.title = '点击让服务端计算 SHA-256（大文件需数分钟）';
@@ -148,30 +151,32 @@ function openHashModal(filename, trigger) {
     const hint = document.getElementById('hashModalHint');
     const username = ctxRef.getUsername();
 
-    document.getElementById('hashModalFile').textContent = filename;
-    document.getElementById('hashModalCmds').innerHTML = verifyCommands(filename);
-    document.getElementById('hashModalDl').innerHTML = downloadCommands(username, filename);
-    valueInput.value = '';
-    valueInput.placeholder = '计算中…';
-    hint.textContent = '正在获取校验码…';
-    openModal(modal, trigger);
+    shareOrigin().then(origin => {
+        document.getElementById('hashModalFile').textContent = filename;
+        document.getElementById('hashModalCmds').innerHTML = verifyCommands(filename);
+        document.getElementById('hashModalDl').innerHTML = downloadCommands(username, filename, origin);
+        valueInput.value = '';
+        valueInput.placeholder = '计算中…';
+        hint.textContent = '正在获取校验码…';
+        openModal(modal, trigger);
 
-    api.fileHash(username, filename)
-        .then(info => {
-            if (!info.success) throw new Error(info.error || '获取失败');
-            valueInput.value = info.sha256;
-            valueInput.placeholder = '';
-            valueInput.focus();
-            valueInput.select();
-            const copied = copyText(info.sha256);
-            hint.textContent = (copied ? '已复制到剪贴板。' : '输入框已全选，按 Ctrl+C 复制。')
-                + '接收端下载完后用下面的命令算一遍，和这串对比。'
-                + (info.cached ? '' : '（本次为服务端现算，大文件会慢一些）');
-        })
-        .catch(err => {
-            valueInput.placeholder = '获取失败';
-            hint.textContent = '获取校验码失败：' + err.message;
-        });
+        api.fileHash(username, filename)
+            .then(info => {
+                if (!info.success) throw new Error(info.error || '获取失败');
+                valueInput.value = info.sha256;
+                valueInput.placeholder = '';
+                valueInput.focus();
+                valueInput.select();
+                const copied = copyText(info.sha256);
+                hint.textContent = (copied ? '已复制到剪贴板。' : '输入框已全选，按 Ctrl+C 复制。')
+                    + '接收端下载完后用下面的命令算一遍，和这串对比。'
+                    + (info.cached ? '' : '（本次为服务端现算，大文件会慢一些）');
+            })
+            .catch(err => {
+                valueInput.placeholder = '获取失败';
+                hint.textContent = '获取校验码失败：' + err.message;
+            });
+    });
 }
 
 document.getElementById('hashModalClose').addEventListener('click', closeModal);

@@ -122,7 +122,6 @@ body[data-stage="app"] #login-gate .backdrop { opacity: 0; }
   box-shadow: 0 22px 54px rgba(4, 11, 15, .46), inset 0 1px 0 rgba(var(--rgb-dusk-cream), .07);
   animation: lbRiseIn 420ms cubic-bezier(.3,0,0,1) 300ms backwards;
 }
-#login-gate .login-card.shake { animation: lbShake 300ms cubic-bezier(.3,0,0,1); }
 
 #login-gate .eyebrow {
   font-family: var(--qfs-font-display); font-size: 12px; font-weight: 500;
@@ -187,14 +186,6 @@ body[data-stage="app"] #login-gate .backdrop { opacity: 0; }
 }
 #login-gate .input-wrap input::placeholder { color: var(--ink-faint); }
 #login-gate .input-wrap:focus-within { border-color: transparent; box-shadow: 0 0 0 2px var(--qfs-ring); }
-#login-gate .field.invalid .input-wrap {
-  border-color: rgba(var(--rgb-destructive), .72); box-shadow: 0 0 0 2px rgba(var(--rgb-destructive), .9);
-}
-#login-gate .err {
-  margin-top: 7px; min-height: 18px; font-size: 12px; line-height: 18px;
-  color: var(--qfs-destructive); visibility: hidden;
-}
-#login-gate .field.invalid .err { visibility: visible; }
 
 /* 记住我：勾选框本体是 ui.css 的 .qcheck 组件，这里只管它在卡片里的位置 */
 #login-gate .remember { margin-top: 14px; }
@@ -245,13 +236,6 @@ body[data-stage="app"] #login-gate .backdrop { opacity: 0; }
 @keyframes lbSoftIn {
   from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: none; }
-}
-@keyframes lbShake {
-  15% { transform: translateX(-6px); }
-  32% { transform: translateX(5px); }
-  50% { transform: translateX(-4px); }
-  70% { transform: translateX(3px); }
-  86% { transform: translateX(-1px); }
 }
 
 /* reduce-motion 降级：150ms 淡出后收尾（由脚本调度） */

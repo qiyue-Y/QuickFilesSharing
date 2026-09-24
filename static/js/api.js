@@ -1,4 +1,4 @@
-/* api.js — 13 个接口的封装与传输常量。username 只走 query/body，绝不进请求头 */
+/* api.js — 14 个接口的封装与传输常量。username 只走 query/body，绝不进请求头 */
 
 export const CHUNK_SIZE = 32 * 1024 * 1024;          // 32MB 每片
 export const PARALLEL_STREAMS = 4;                   // 4 路并行
@@ -30,6 +30,7 @@ export const api = {
     deleteBoard: (username, id) => postJSON('/api/board/delete', { username, id }),
     files: (username) => getJSON('/api/files', { username }),
     disk: () => getJSON('/api/disk', {}),
+    serverAddr: () => getJSON('/api/server-addr', {}),
     fileInfo: (username, filename) => getJSON('/api/file/info', { username, filename }),
     fileHash: (username, filename) => getJSON('/api/file/hash', { username, filename }),
     remove: (username, filename) => postJSON('/api/delete', { username, filename }),
@@ -40,3 +41,17 @@ export const api = {
     chunkDownloadUrl: (username, filename) => url('/api/download/chunk', { username, filename }),
     downloadUrl: (username, filename) => url('/api/download', { username, filename }),
 };
+
+/* 复制给别人的地址：页面用 localhost 打开时换成服务器局域网 IP，否则接收端连不上 */
+export async function shareOrigin() {
+    if (!['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)) return location.origin;
+    try {
+        const d = await api.serverAddr();
+        if (d.ip) {
+            const u = new URL(location.origin);
+            u.hostname = d.ip;
+            return u.origin;
+        }
+    } catch (e) { /* 取不到 IP 就退回地址栏里的地址 */ }
+    return location.origin;
+}

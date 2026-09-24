@@ -1,6 +1,6 @@
 /* hud.js — 顶栏：访问地址复制、磁盘剩余、用户头像弹层（切换 / 记住我 / 退出） */
 
-import { api, LOW_DISK_BYTES } from './api.js';
+import { api, LOW_DISK_BYTES, shareOrigin } from './api.js';
 import { formatSize } from './format.js';
 import { toast, copyText } from './ui.js';
 
@@ -30,13 +30,15 @@ export function init(ctx) {
     const popInput = document.getElementById('pop-input');
     const popRemember = document.getElementById('popRemember');
 
-    hostText.textContent = location.host;
+    shareOrigin().then(origin => { hostText.textContent = new URL(origin).host; });
 
     hostBtn.addEventListener('click', () => {
-        const ok = copyText(location.origin + '/');
-        toast(ok ? '访问地址已复制: ' + location.origin : '复制失败，请手动复制地址栏', ok ? 'success' : 'error');
-        hostBtn.classList.toggle('copied', ok);
-        setTimeout(() => hostBtn.classList.remove('copied'), 1500);
+        shareOrigin().then(origin => {
+            const ok = copyText(origin + '/');
+            toast(ok ? '访问地址已复制: ' + origin : '复制失败，请手动复制地址栏', ok ? 'success' : 'error');
+            hostBtn.classList.toggle('copied', ok);
+            setTimeout(() => hostBtn.classList.remove('copied'), 1500);
+        });
     });
 
     /* ---------- 磁盘剩余 ---------- */
