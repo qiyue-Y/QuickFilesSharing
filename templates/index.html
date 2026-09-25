@@ -192,7 +192,7 @@
         <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="hashModalTitle">
             <div class="modal-head">
                 <h3 id="hashModalTitle">文件信息</h3>
-                <button type="button" class="qbtn modal-close" id="hashModalClose" aria-label="关闭">&times;</button>
+                <button type="button" class="modal-close" id="hashModalClose" aria-label="关闭"><svg viewBox="0 0 14 14" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><line x1="2.8" y1="2.8" x2="11.2" y2="11.2"/><line x1="11.2" y1="2.8" x2="2.8" y2="11.2"/></svg></button>
             </div>
             <div class="modal-file" id="hashModalFile"></div>
             <input id="hashModalValue" readonly>
@@ -202,6 +202,21 @@
             <div class="verify-title">命令行下载（支持断点续传，大文件推荐）</div>
             <div class="verify-list" id="hashModalDl"></div>
             <div class="verify-hint">下载命令里的地址已自动换成服务器局域网 IP（本页用 localhost 打开时）；多网卡选错时手动改命令里的 IP。</div>
+        </div>
+    </div>
+
+    <!-- 通用确认框（删文件等危险操作，ui.js confirmDialog） -->
+    <div id="confirm-modal" class="modal-mask" hidden>
+        <div class="modal-box sm" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+            <div class="modal-head">
+                <h3 id="confirmTitle">确认</h3>
+                <button type="button" class="modal-close" id="confirmClose" aria-label="关闭"><svg viewBox="0 0 14 14" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><line x1="2.8" y1="2.8" x2="11.2" y2="11.2"/><line x1="11.2" y1="2.8" x2="2.8" y2="11.2"/></svg></button>
+            </div>
+            <p class="confirm-body" id="confirmBody"></p>
+            <div class="modal-foot">
+                <button type="button" class="qbtn" id="confirmCancel">取消</button>
+                <button type="button" class="qbtn danger" id="confirmOk">确认</button>
+            </div>
         </div>
     </div>
 

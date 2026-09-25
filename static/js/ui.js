@@ -1,4 +1,4 @@
-/* ui.js — toast 状态提示、复制兜底、弹窗通用开关（spec §4.3 / §4.4） */
+/* ui.js — toast 状态提示、复制兜底、弹窗通用开关与通用确认框（spec §4.3 / §4.4） */
 
 const TOAST_HOST = document.getElementById('toastHost');
 const MAX_TOASTS = 3;
@@ -36,6 +36,8 @@ export function copyText(text) {
 
 let openMask = null;
 let lastFocused = null;
+let onCloseCb = null;
+let modalLocked = false;
 
 function focusables(mask) {
     return Array.from(mask.querySelectorAll(
@@ -60,27 +62,78 @@ function onKeydown(e) {
 
 document.addEventListener('keydown', onKeydown);
 
-export function openModal(mask, opener) {
+export function openModal(mask, opener, onClose) {
     if (openMask) closeModal();
     openMask = mask;
     lastFocused = opener || document.activeElement;
+    onCloseCb = onClose || null;
+    modalLocked = false;
     mask.hidden = false;
     document.body.classList.add('modal-open');
     requestAnimationFrame(() => mask.classList.add('in'));
 }
 
 export function closeModal() {
-    if (!openMask) return;
+    if (!openMask || modalLocked) return;
     const mask = openMask;
     openMask = null;
+    const cb = onCloseCb; onCloseCb = null;
     mask.classList.remove('in');
     document.body.classList.remove('modal-open');
     setTimeout(() => { mask.hidden = true; }, 300);
     if (lastFocused && lastFocused.isConnected) lastFocused.focus();
     lastFocused = null;
+    if (cb) cb();
 }
 
 /** 点遮罩空白处关闭（点击落在盒体内时不关） */
 export function closeOnBackdrop(mask) {
     mask.addEventListener('click', e => { if (e.target === mask) closeModal(); });
 }
+
+/* ---------- 通用确认框 ----------
+ * confirmDialog({title, body, okText, cancelText, onOk}) → Promise<boolean>
+ * 无 onOk：点确认即关窗 resolve(true)；有 onOk：请求期间锁窗（Esc/遮罩/取消都关不掉），
+ * onOk 返回 false 或抛错则保持打开、按钮恢复，成功才关窗。取消/Esc/遮罩 resolve(false)。 */
+
+const confirmMask = document.getElementById('confirm-modal');
+const confirmTitle = document.getElementById('confirmTitle');
+const confirmBody = document.getElementById('confirmBody');
+const confirmOk = document.getElementById('confirmOk');
+const confirmCancel = document.getElementById('confirmCancel');
+let confirmResolve = null;
+let confirmOnOk = null;
+
+function settleConfirm(v) {
+    const r = confirmResolve; confirmResolve = null;
+    if (r) r(v);
+}
+
+export function confirmDialog({ title, body, okText = '确认', cancelText = '取消', onOk }) {
+    confirmTitle.textContent = title;
+    confirmBody.textContent = body;
+    confirmOk.textContent = okText;
+    confirmCancel.textContent = cancelText;
+    confirmOk.disabled = confirmCancel.disabled = false;
+    confirmOnOk = onOk || null;
+    return new Promise(resolve => {
+        confirmResolve = resolve;
+        openModal(confirmMask, document.activeElement, () => settleConfirm(false));
+        confirmCancel.focus();
+    });
+}
+
+confirmOk.addEventListener('click', async () => {
+    if (!confirmOnOk) { settleConfirm(true); closeModal(); return; }
+    modalLocked = true;
+    confirmOk.disabled = confirmCancel.disabled = true;
+    let done;
+    try { done = await confirmOnOk(); } catch (e) { done = false; }
+    modalLocked = false;
+    confirmOk.disabled = confirmCancel.disabled = false;
+    if (done !== false) { settleConfirm(true); closeModal(); }
+});
+
+confirmCancel.addEventListener('click', closeModal);
+document.getElementById('confirmClose').addEventListener('click', closeModal);
+closeOnBackdrop(confirmMask);

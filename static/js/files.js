@@ -2,7 +2,7 @@
 
 import { api, shareOrigin } from './api.js';
 import { formatSize, formatDate, escapeHtml, fileIcon } from './format.js';
-import { toast, copyText, openModal, closeModal, closeOnBackdrop } from './ui.js';
+import { toast, copyText, openModal, closeModal, closeOnBackdrop, confirmDialog } from './ui.js';
 
 const listEl = document.getElementById('file-list');
 const modal = document.getElementById('hashModal');
@@ -133,15 +133,20 @@ listEl.addEventListener('click', e => {
 });
 
 function removeFile(cell, filename) {
-    if (!confirm(`确定要删除文件 "${filename}" 吗？`)) return;
-    api.remove(ctxRef.getUsername(), filename)
-        .then(data => {
+    confirmDialog({
+        title: '删除文件',
+        body: `确定要删除 "${filename}" 吗？删除后不可恢复。`,
+        okText: '删除',
+        onOk: () => api.remove(ctxRef.getUsername(), filename).then(data => {
             if (!data.success) throw new Error(data.error || '未知错误');
             cell.classList.add('gone');
             setTimeout(() => { cell.remove(); if (!listEl.querySelector('.fcell')) loadFiles(); }, 700);
             toast('已删除: ' + filename, 'success');
-        })
-        .catch(err => toast('删除失败：' + err.message, 'error'));
+        }).catch(err => {
+            toast('删除失败：' + err.message, 'error');
+            return false;
+        }),
+    });
 }
 
 /* ---------- 弹窗 ---------- */

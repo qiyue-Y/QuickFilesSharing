@@ -5,9 +5,9 @@
 ## 布局
 
 - `http_messages_share.py` — 后端全部（Flask + waitress/gunicorn），端口固定 5000
-- `templates/index.html` — 前端骨架（216 行，只有标记，无内联 style/script）
+- `templates/index.html` — 前端骨架（231 行，只有标记，无内联 style/script）
 - `static/css/` — `tokens.css`（色板/字体栈/@font-face；色相只在这里定义一次：11 个 `--rgb-*` 通道三元组是唯一的源，整色令牌由它派生 `--gold-glint: rgb(var(--rgb-gold))`，界面里带透明度一律写 `rgba(var(--rgb-gold), .55)`，**不要再落新的 `rgba(242,207,143,…)` 字面量**）、`pond.css`（背景层/粒子/标题渐变）、`ui.css`（topbar/panel/文件行/弹窗/toast/媒体查询）、`login.css`（登录台：拱框展品 + 宣纸登录卡，规则全部收在 `#login-gate` 作用域内；转场不用整屏遮挡层，进入/退出两个方向共用 `body[data-stage]` 驱动的一组 opacity 过渡）
-- `static/js/` — 原生 ES Module，无构建无框架（12 个模块），`main.js` 汇总并按 hud→files→upload→download→board→login 顺序 `init(ctx)` 初始化；`api.js` 收口 14 个接口（含 `shareOrigin()`：页面用 localhost 打开时把复制给别人的地址换成局域网 IP），`format.js` 收口格式化与文件图标，`transfer.js` 是单传输闸门，`upload.js` 是分片上传 + 整页拖放（提示层 `.drop-veil`），`board.js` 是留言板（5s 轮询 + `after` 增量 + 长留言折叠 / 删自己那条）。模块作用域里的函数不在 `window` 上，**事件一律在模块内 `addEventListener`（列表行用委托），不写内联 `onclick`**
+- `static/js/` — 原生 ES Module，无构建无框架（12 个模块），`main.js` 汇总并按 hud→files→upload→download→board→login 顺序 `init(ctx)` 初始化；`api.js` 收口 14 个接口（含 `shareOrigin()`：页面用 localhost 打开时把复制给别人的地址换成局域网 IP），`ui.js` 管 toast/复制/焦点圈定弹窗与通用确认框 `confirmDialog()`（危险操作一律用它，不用原生 confirm），`format.js` 收口格式化与文件图标，`transfer.js` 是单传输闸门，`upload.js` 是分片上传 + 整页拖放（提示层 `.drop-veil`），`board.js` 是留言板（5s 轮询 + `after` 增量 + 长留言折叠 / 删自己那条）。模块作用域里的函数不在 `window` 上，**事件一律在模块内 `addEventListener`（列表行用委托），不写内联 `onclick`**
 - `static/img/` `static/fonts/` — 睡莲池背景/画廊图 + 自托管 woff2
 - `files/<用户名>/` — 用户文件；`.chunks/` 分片临时目录（启动清扫 mtime>24h）；`.hashes.json` 哈希记录
 - `clipboards/messages.db` — 留言板（SQLite，标准库 `sqlite3`，WAL）。全员共享一块板，页面只展示最近 5 条（`BOARD_VISIBLE`），更早的留在库里。**代码不读旧的 `clipboards/<user>.txt`**（一次性导入已完成，别再往启动流程里加兼容迁移）
