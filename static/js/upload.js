@@ -144,8 +144,8 @@ function uploadOne(file, batch) {
             });
             xhr.addEventListener('error', () => chunkReject(new Error('网络错误')));
             xhr.addEventListener('abort', () => chunkReject(new Error('已取消')));
-            // 裸 body：不拼 multipart，服务端省一次临时文件落盘
-            xhr.open('POST', api.chunkUploadUrl(username));
+            // 裸 body：不拼 multipart，服务端省一次临时文件写+读；filename 仅进服务端日志
+            xhr.open('POST', api.chunkUploadUrl(username, file.name));
             xhr.setRequestHeader('X-File-Id', fileId);
             xhr.setRequestHeader('X-Chunk-Index', chunkIndex);
             xhr.send(blob);

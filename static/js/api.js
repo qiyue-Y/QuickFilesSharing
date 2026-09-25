@@ -37,7 +37,7 @@ export const api = {
     merge: (payload) => postJSON('/api/upload/merge', payload),
     abortUpload: (username, fileId) => postJSON('/api/upload/abort', { username, file_id: fileId }),
 
-    chunkUploadUrl: (username) => url('/api/upload/chunk', { username }),
+    chunkUploadUrl: (username, filename) => url('/api/upload/chunk', { username, filename }),
     chunkDownloadUrl: (username, filename) => url('/api/download/chunk', { username, filename }),
     downloadUrl: (username, filename) => url('/api/download', { username, filename }),
 };

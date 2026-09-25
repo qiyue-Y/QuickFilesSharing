@@ -16,6 +16,7 @@ from werkzeug.exceptions import HTTPException
 import hashlib
 import json
 import logging
+import queue
 import re
 import sqlite3
 import sys
@@ -246,6 +247,15 @@ def cleanup_chunks(username, file_id):
     log.warning("分片目录清理失败（仍被占用），留待启动清扫: %s", chunk_dir)
 
 
+def read_chunk_filename(chunk_dir):
+    """读分片目录里的 meta.json 拿原文件名，仅用于日志；没有/坏了返回 ?"""
+    try:
+        with open(os.path.join(chunk_dir, "meta.json"), "r", encoding="utf-8") as f:
+            return json.load(f).get("filename", "?")
+    except (OSError, ValueError):
+        return "?"
+
+
 def exclusive_path(user_dir, filename):
     """重名时追加时间戳与序号，返回一个当前不存在的路径。配合 open('x') 独占创建：
     并发同名也不会互相覆盖——同秒同名只加一层时间戳仍可能撞，循环序号兜底"""
@@ -268,8 +278,9 @@ def merge_chunks(username, file_id, original_filename, total_chunks):
     user_dir = get_user_files_dir(username)
 
     # 按序号排序并校验齐全（0..total-1 无缺失）：缺片合并会产出被截断的"完整文件"
+    # 只认 chunk_*：目录里还有首片时落的 meta.json，混进来会让 basename.split("_")[1] 炸 IndexError
     chunk_files = sorted(
-        glob.glob(os.path.join(chunk_dir, "*")),
+        glob.glob(os.path.join(chunk_dir, "chunk_*")),
         key=lambda x: int(os.path.basename(x).split("_")[1])
     )
     indices = [int(os.path.basename(x).split("_")[1]) for x in chunk_files]
@@ -476,6 +487,17 @@ def sweep_stale_chunks(max_age_hours=24):
             except OSError:
                 continue
             if newest < cutoff:
+                chunk_names = [n for n in entries if n.startswith("chunk_")]
+                try:
+                    total_bytes = sum(os.path.getsize(os.path.join(chunk_dir, n)) for n in chunk_names)
+                except OSError:
+                    total_bytes = -1
+                log.info(
+                    "清理未完成上传: user=%s file_id=%s file=%s 分片数=%d 已收=%s 最后写入=%s",
+                    username, file_id, read_chunk_filename(chunk_dir), len(chunk_names),
+                    human_size(total_bytes) if total_bytes >= 0 else "?",
+                    time.strftime("%Y-%m-%d %H:%M", time.localtime(newest))
+                )
                 shutil.rmtree(chunk_dir, ignore_errors=True)
                 removed += 1
     if removed:
@@ -492,6 +514,50 @@ def start_hash_reconcile():
             log.exception("分片目录清扫失败")
         reconcile_hashes()
     threading.Thread(target=_maintenance, name="startup-maintenance", daemon=True).start()
+
+
+# === 后台哈希计算 ===
+# 服务运行中手动放入/原地替换的文件没有哈希记录。/api/files 每次请求都 listdir，
+# 扫到"无有效记录"就顺手入队；worker 串行补算，请求线程永不做整文件读盘
+# （hashlib 是 C 扩展、计算时释放 GIL，后台线程与请求线程真并行）。
+# /api/file/hash 无记录时返回 computing，前端轮询到算好为止。
+
+_hash_queue = queue.Queue()
+_hash_queued = set()                 # (user_dir, filename) 防重复入队
+_hash_queued_lock = threading.Lock()
+
+
+def enqueue_hash(user_dir, filename):
+    key = (user_dir, filename)
+    with _hash_queued_lock:
+        if key in _hash_queued:
+            return
+        _hash_queued.add(key)
+    _hash_queue.put(key)
+
+
+def hash_worker_loop():
+    while True:
+        user_dir, filename = _hash_queue.get()
+        try:
+            full = os.path.join(user_dir, filename)
+            signature = file_signature(full)
+            if signature is None or get_known_hash(user_dir, filename) is not None:
+                continue             # 文件已消失，或启动对账/别的路径已算好
+            started = time.monotonic()
+            log.info("后台计算校验码: file=%s size=%s", filename, human_size(signature[0]))
+            digest = hash_file(full)
+            record_hash(user_dir, filename, digest)
+            log.info("后台校验码完成: file=%s %s=%s 耗时=%.2fs",
+                     filename, HASH_ALGO, digest, time.monotonic() - started)
+        except Exception:
+            log.exception("后台计算校验码失败: %s", user_dir)
+        finally:
+            with _hash_queued_lock:
+                _hash_queued.discard((user_dir, filename))
+
+
+threading.Thread(target=hash_worker_loop, name="hash-worker", daemon=True).start()
 
 
 def human_size(num_bytes):
@@ -622,7 +688,7 @@ def file_info():
 
 @app.route('/api/file/hash', methods=['GET'])
 def file_hash():
-    """获取文件校验码；没有记录（历史文件）时现算一次并落盘"""
+    """获取文件校验码；无记录时入队交后台计算并返回 computing，请求线程不整读文件"""
     username = normalize_username(request.args.get('username', 'default'))
     filename = safe_filename(request.args.get('filename', ''))
     if username is None or filename is None:
@@ -636,19 +702,11 @@ def file_hash():
 
     file_size = os.path.getsize(file_path)
     digest = get_known_hash(user_dir, filename)
-    cached = digest is not None
-
-    if not cached:
-        started = time.monotonic()
-        log.info("开始计算校验码: user=%s file=%s size=%s", username, filename, human_size(file_size))
-        digest = hash_file(file_path)
-        record_hash(user_dir, filename, digest)
-        log.info(
-            "校验码计算完成: user=%s file=%s %s=%s 耗时=%.2fs",
-            username, filename, HASH_ALGO, digest, time.monotonic() - started
-        )
-
-    return jsonify({"success": True, "name": filename, "size": file_size, HASH_ALGO: digest, "cached": cached})
+    if digest is None:
+        enqueue_hash(user_dir, filename)
+        log.info("校验码未就绪，转后台计算: user=%s file=%s size=%s", username, filename, human_size(file_size))
+        return jsonify({"success": True, "name": filename, "size": file_size, HASH_ALGO: None, "computing": True})
+    return jsonify({"success": True, "name": filename, "size": file_size, HASH_ALGO: digest, "cached": True})
 
 
 @app.route('/api/upload/chunk', methods=['POST'])
@@ -660,6 +718,8 @@ def upload_chunk():
         username = normalize_username(request.args.get('username', 'default'))
         file_id = request.headers.get('X-File-Id', '')
         chunk_index = request.headers.get('X-Chunk-Index', '0')
+        # 原文件名也只进 query，且仅用于日志与 meta.json，绝不参与拼路径
+        display_name = safe_filename(request.args.get('filename', '')) or "?"
 
         if username is None or not _FILE_ID_RE.match(file_id or ''):
             return bad_request("参数不合法")
@@ -680,6 +740,14 @@ def upload_chunk():
                 if not buf:
                     break
                 dst.write(buf)
+
+        # 首片落盘即记「上传开始」+ meta.json：只有开始没有合并完成的 file_id 就是中断签名
+        if idx == 0:
+            meta_path = os.path.join(chunk_dir, "meta.json")
+            if not os.path.exists(meta_path):
+                with open(meta_path, "w", encoding="utf-8") as f:
+                    json.dump({"filename": display_name, "started": time.time()}, f, ensure_ascii=False)
+                log.info("上传开始: user=%s file=%s file_id=%s", username, display_name, file_id)
 
         return jsonify({"success": True, "chunk_index": idx})
     except Exception:
@@ -733,8 +801,10 @@ def upload_abort():
         file_id = data.get('file_id', '')
         if username is None or not _FILE_ID_RE.match(file_id or ''):
             return bad_request("参数不合法")
+        chunk_dir = os.path.join(FILES_DIR, username, ".chunks", file_id)
+        file_name = read_chunk_filename(chunk_dir)
         cleanup_chunks(username, file_id)
-        log.info("上传已取消，清理分片: user=%s file_id=%s", username, file_id)
+        log.info("上传已取消，清理分片: user=%s file=%s file_id=%s", username, file_name, file_id)
         return jsonify({"success": True})
     except Exception:
         log.exception("取消上传清理分片失败: %s", request.full_path.rstrip("?"))
@@ -884,11 +954,14 @@ def list_files():
             continue
         if os.path.isfile(full):
             signature = file_signature(full)
+            digest = known_hash(records.get(name), signature)
+            if digest is None:
+                enqueue_hash(user_dir, name)   # 搭 listdir 的便车，交给后台 worker 补算
             result.append({
                 "name": name,
                 "size": signature[0] if signature else 0,
                 "mtime": signature[1] if signature else 0,
-                HASH_ALGO: known_hash(records.get(name), signature),
+                HASH_ALGO: digest,
             })
     result.sort(key=lambda x: x["name"])
     return jsonify({"files": result})

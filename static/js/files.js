@@ -151,6 +151,8 @@ function removeFile(cell, filename) {
 
 /* ---------- 弹窗 ---------- */
 
+let hashReq = 0;   // 每次打开弹窗 +1，旧轮询凭号作废
+
 function openHashModal(filename, trigger) {
     const valueInput = document.getElementById('hashModalValue');
     const hint = document.getElementById('hashModalHint');
@@ -165,22 +167,31 @@ function openHashModal(filename, trigger) {
         hint.textContent = '正在获取校验码…';
         openModal(modal, trigger);
 
-        api.fileHash(username, filename)
-            .then(info => {
-                if (!info.success) throw new Error(info.error || '获取失败');
-                valueInput.value = info.sha256;
-                valueInput.placeholder = '';
-                valueInput.focus();
-                valueInput.select();
-                const copied = copyText(info.sha256);
-                hint.textContent = (copied ? '已复制到剪贴板。' : '输入框已全选，按 Ctrl+C 复制。')
-                    + '接收端下载完后用下面的命令算一遍，和这串对比。'
-                    + (info.cached ? '' : '（本次为服务端现算，大文件会慢一些）');
-            })
-            .catch(err => {
-                valueInput.placeholder = '获取失败';
-                hint.textContent = '获取校验码失败：' + err.message;
-            });
+        const reqId = ++hashReq;
+        (function fetchHash() {
+            api.fileHash(username, filename)
+                .then(info => {
+                    if (reqId !== hashReq || modal.hidden) return;
+                    if (!info.success) throw new Error(info.error || '获取失败');
+                    if (info.computing) {
+                        hint.textContent = '服务端正在计算校验码（大文件需数分钟），每 3 秒自动重试…';
+                        setTimeout(fetchHash, 3000);
+                        return;
+                    }
+                    valueInput.value = info.sha256;
+                    valueInput.placeholder = '';
+                    valueInput.focus();
+                    valueInput.select();
+                    const copied = copyText(info.sha256);
+                    hint.textContent = (copied ? '已复制到剪贴板。' : '输入框已全选，按 Ctrl+C 复制。')
+                        + '接收端下载完后用下面的命令算一遍，和这串对比。';
+                })
+                .catch(err => {
+                    if (reqId !== hashReq || modal.hidden) return;
+                    valueInput.placeholder = '获取失败';
+                    hint.textContent = '获取校验码失败：' + err.message;
+                });
+        })();
     });
 }
 
