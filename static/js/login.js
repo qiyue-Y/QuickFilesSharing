@@ -88,6 +88,8 @@ export function init(ctx) {
         hideStage();
         return;
     }
+    const prefill = new URLSearchParams(location.search).get('u');
+    if (prefill) input.value = prefill.trim().slice(0, 32);
     syncClearBtn();
     document.body.classList.add('login-pending');
     input.focus();

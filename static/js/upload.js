@@ -15,6 +15,18 @@ let ctxRef = null;
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+/** file_id 由 文件名|大小|lastModified 派生（FNV-1a 64bit，16 位 hex）：
+ *  同一文件重复上传得到同一 id → 服务端 .chunks 里的合格分片可复用（断点续传）；
+ *  任一属性变了就是新 id、从头传。纯十六进制满足后端 _FILE_ID_RE */
+function deriveFileId(file) {
+    const s = `${file.name}|${file.size}|${file.lastModified}`;
+    let h = 0xcbf29ce484222325n;
+    const PRIME = 0x100000001b3n;
+    const MASK = (1n << 64n) - 1n;
+    for (let i = 0; i < s.length; i++) h = ((h ^ BigInt(s.charCodeAt(i))) * PRIME) & MASK;
+    return h.toString(16).padStart(16, '0');
+}
+
 /* ---------- 入口 ---------- */
 
 function onPick() {
@@ -27,11 +39,13 @@ function onPick() {
 function initDrag() {
     const hasFiles = e => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
     const canDrop = e => hasFiles(e) && !!ctxRef.getUsername();
+    // 弹窗开着时的投放是给"页面内一键校验"用的，绝不能当成上传
+    const modalOpen = () => !!document.querySelector('.modal-mask:not([hidden])');
 
     document.addEventListener('dragover', e => {
         if (!canDrop(e)) return;
         e.preventDefault();
-        document.body.classList.add('dragging');
+        document.body.classList.toggle('dragging', !modalOpen());
     });
     document.addEventListener('dragleave', e => {
         if (e.relatedTarget) return;   // 只是穿梭到子元素，没出窗口
@@ -41,6 +55,7 @@ function initDrag() {
         document.body.classList.remove('dragging');
         if (!canDrop(e)) return;
         e.preventDefault();
+        if (modalOpen()) return;
         const files = Array.from(e.dataTransfer.files || []);
         if (files.length) uploadFiles(files);
     });
@@ -103,7 +118,7 @@ function uploadOne(file, batch) {
     }
 
     const totalChunks = Math.max(1, Math.ceil(file.size / CHUNK_SIZE));
-    const fileId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    const fileId = deriveFileId(file);
     token.fileId = fileId;
 
     const cell = makeRow({ name: file.name, size: file.size, mtime: 0, sha256: null });
@@ -152,7 +167,27 @@ function uploadOne(file, batch) {
         });
 
         (async () => {
-            const queue = Array.from({ length: totalChunks }, (_, i) => i);
+            // 断点续传：问服务端已有哪几片，只信"序号合法且大小分毫不差"的
+            //（半路断掉的写入会留下截断片，大小对不上就重传，绝不带病合并）
+            const expectedSize = i => (i === totalChunks - 1 ? file.size - i * CHUNK_SIZE : CHUNK_SIZE);
+            let skip = new Set();
+            try {
+                const st = await api.uploadStatus(username, fileId);
+                if (st.success) {
+                    for (const r of st.received || []) {
+                        if (r.index >= 0 && r.index < totalChunks && r.size === expectedSize(r.index)) {
+                            skip.add(r.index);
+                            prog.chunkProgress[r.index] = r.size;
+                        }
+                    }
+                }
+            } catch (e) { /* 问不到就当全新上传 */ }
+            if (skip.size) {
+                prog.setCompleted(skip.size);
+                toast(`检测到 ${skip.size}/${totalChunks} 片已传，从断点继续`, 'info');
+            }
+
+            const queue = Array.from({ length: totalChunks }, (_, i) => i).filter(i => !skip.has(i));
             const inFlight = new Set();
             let fatal = false;
             let firstError = null;   // 保住服务端拒绝的原始话术（如"磁盘空间不足"）

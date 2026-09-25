@@ -1,6 +1,7 @@
 /* files.js — 文件列表渲染、删除、文件信息弹窗（spec §4.1 / §4.3） */
 
 import { api, shareOrigin } from './api.js';
+import { verifyFile, VERIFY_MAX } from './verify.js';
 import { formatSize, formatDate, escapeHtml, fileIcon } from './format.js';
 import { toast, copyText, openModal, closeModal, closeOnBackdrop, confirmDialog } from './ui.js';
 
@@ -165,6 +166,8 @@ function openHashModal(filename, trigger) {
         valueInput.value = '';
         valueInput.placeholder = '计算中…';
         hint.textContent = '正在获取校验码…';
+        verifyToken++;
+        showVerify('');
         openModal(modal, trigger);
 
         const reqId = ++hashReq;
@@ -197,6 +200,64 @@ function openHashModal(filename, trigger) {
 
 document.getElementById('hashModalClose').addEventListener('click', closeModal);
 closeOnBackdrop(modal);
+
+/* ---------- 页面内一键校验（verify.js 的 SHA-256 Worker） ---------- */
+
+const verifyDrop = document.getElementById('verifyDrop');
+const verifyInput = document.getElementById('verifyInput');
+const verifyResult = document.getElementById('verifyResult');
+let verifyToken = 0;
+
+function showVerify(msg, state) {
+    verifyResult.hidden = !msg;
+    verifyResult.textContent = msg || '';
+    verifyResult.className = 'verify-result';
+    if (state === 'ok') verifyResult.classList.add('ok');
+    if (state === 'bad') verifyResult.classList.add('bad');
+    if (state === 'run') verifyResult.classList.add('run');
+}
+
+async function runVerify(file) {
+    const expected = document.getElementById('hashModalValue').value;
+    if (!expected) { showVerify('校验码尚未就绪，稍候再放入文件', 'run'); return; }
+    if (file.size > VERIFY_MAX) {
+        showVerify(`文件 ${formatSize(file.size)} 超过本页 2GB 上限，请用上面的命令行校验`, 'run');
+        return;
+    }
+    const token = ++verifyToken;
+    const started = performance.now();
+    try {
+        const digest = await verifyFile(file, p => {
+            if (token === verifyToken)
+                showVerify(`计算中 ${(p * 100).toFixed(0)}%（${formatSize(file.size * p)} / ${formatSize(file.size)}）`, 'run');
+        });
+        if (token !== verifyToken) return;
+        const secs = (performance.now() - started) / 1000;
+        if (digest === expected)
+            showVerify(`✅ 与服务器记录一致 · ${formatSize(file.size)} 用时 ${secs.toFixed(1)}s（约 ${formatSize(file.size / secs)}/s）`, 'ok');
+        else
+            showVerify(`❌ 不一致！本页算出 ${digest}，服务器记录 ${expected}。文件可能没下完或被改动`, 'bad');
+    } catch (err) {
+        if (token === verifyToken) showVerify('校验失败：' + err.message, 'bad');
+    }
+}
+
+verifyDrop.addEventListener('dragover', e => {
+    e.preventDefault(); e.stopPropagation();
+    verifyDrop.classList.add('dragover');
+});
+verifyDrop.addEventListener('dragleave', () => verifyDrop.classList.remove('dragover'));
+verifyDrop.addEventListener('drop', e => {
+    e.preventDefault(); e.stopPropagation();   // 冒泡到 document 会被当成"上传投放"
+    verifyDrop.classList.remove('dragover');
+    const f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) runVerify(f);
+});
+verifyInput.addEventListener('change', () => {
+    const f = verifyInput.files[0];
+    verifyInput.value = '';
+    if (f) runVerify(f);
+});
 
 export function init(ctx) {
     ctxRef = ctx;

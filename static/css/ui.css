@@ -483,6 +483,25 @@ body.dragging .drop-veil { opacity: 1; }
 }
 .verify-hint { margin: 10px 0 0; font-size: 11px; line-height: 1.75; color: var(--ink-faint); }
 .verify-hint code { font-family: var(--qfs-font-mono); color: var(--water-lavender); }
+.verify-drop {
+  position: relative; display: block; margin-top: 8px; padding: 18px;
+  text-align: center; cursor: pointer; font-size: 12.5px; letter-spacing: .05em;
+  color: var(--ink-soft);
+  border: 2px dashed rgba(var(--rgb-gold), .35); border-radius: var(--qfs-radius-md);
+  transition: border-color .2s ease, background-color .2s ease, color .2s ease;
+}
+.verify-drop:hover, .verify-drop.dragover {
+  border-color: rgba(var(--rgb-gold), .65); background: rgba(var(--rgb-gold), .06);
+  color: var(--dusk-cream);
+}
+.verify-drop input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.qr-box { display: grid; place-items: center; margin-top: 14px; }
+.qr-box svg { width: 220px; height: 220px; padding: 12px; background: rgb(var(--rgb-dusk-cream)); border-radius: var(--qfs-radius-md); color: #101418; }
+.qr-box path { fill: currentColor; }
+.verify-result { margin-top: 10px; font-size: 12.5px; line-height: 1.7; word-break: break-all; }
+.verify-result.ok { color: var(--qfs-primary); }
+.verify-result.bad { color: var(--qfs-destructive); }
+.verify-result.run { color: var(--ink-soft); }
 details.verify-help { margin-top: 18px; }
 details.verify-help summary {
   cursor: pointer; font-size: 12px; color: var(--ink-soft);

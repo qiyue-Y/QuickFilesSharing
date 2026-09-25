@@ -5,9 +5,9 @@
 ## 布局
 
 - `http_messages_share.py` — 后端全部（Flask + waitress/gunicorn），端口固定 5000
-- `templates/index.html` — 前端骨架（231 行，只有标记，无内联 style/script）
+- `templates/index.html` — 前端骨架（247 行，只有标记，无内联 style/script）
 - `static/css/` — `tokens.css`（色板/字体栈/@font-face；色相只在这里定义一次：11 个 `--rgb-*` 通道三元组是唯一的源，整色令牌由它派生 `--gold-glint: rgb(var(--rgb-gold))`，界面里带透明度一律写 `rgba(var(--rgb-gold), .55)`，**不要再落新的 `rgba(242,207,143,…)` 字面量**）、`pond.css`（背景层/粒子/标题渐变）、`ui.css`（topbar/panel/文件行/弹窗/toast/媒体查询）、`login.css`（登录台：拱框展品 + 宣纸登录卡，规则全部收在 `#login-gate` 作用域内；转场不用整屏遮挡层，进入/退出两个方向共用 `body[data-stage]` 驱动的一组 opacity 过渡）
-- `static/js/` — 原生 ES Module，无构建无框架（12 个模块），`main.js` 汇总并按 hud→files→upload→download→board→login 顺序 `init(ctx)` 初始化；`api.js` 收口 14 个接口（含 `shareOrigin()`：页面用 localhost 打开时把复制给别人的地址换成局域网 IP），`ui.js` 管 toast/复制/焦点圈定弹窗与通用确认框 `confirmDialog()`（危险操作一律用它，不用原生 confirm），`format.js` 收口格式化与文件图标，`transfer.js` 是单传输闸门，`upload.js` 是分片上传 + 整页拖放（提示层 `.drop-veil`），`board.js` 是留言板（5s 轮询 + `after` 增量 + 长留言折叠 / 删自己那条）。模块作用域里的函数不在 `window` 上，**事件一律在模块内 `addEventListener`（列表行用委托），不写内联 `onclick`**
+- `static/js/` — 原生 ES Module，无构建无框架（13 个模块 + `vendor/qrcode.js` 自托管 MIT 库，末尾补了 ESM 导出行），`main.js` 汇总并按 hud→files→upload→download→board→login 顺序 `init(ctx)` 初始化；`api.js` 收口 15 个接口（含 `shareOrigin()`：页面用 localhost 打开时把复制给别人的地址换成局域网 IP），`ui.js` 管 toast/复制/焦点圈定弹窗与通用确认框 `confirmDialog()`（危险操作一律用它，不用原生 confirm），`format.js` 收口格式化与文件图标，`transfer.js` 是单传输闸门，`upload.js` 是分片上传 + 整页拖放（提示层 `.drop-veil`；弹窗开着时投放不触发上传），`verify.js` 是页面内一键校验（纯 JS SHA-256 跑在 Blob URL Worker 里——非安全上下文没有 `crypto.subtle`），`board.js` 是留言板（5s 轮询 + `after` 增量 + 长留言折叠 / 删自己那条）。模块作用域里的函数不在 `window` 上，**事件一律在模块内 `addEventListener`（列表行用委托），不写内联 `onclick`**
 - `static/img/` `static/fonts/` — 睡莲池背景/画廊图 + 自托管 woff2
 - `files/<用户名>/` — 用户文件；`.chunks/` 分片临时目录（含 `meta.json`：文件名+开始时间；启动清扫 mtime>24h，逐条记日志）；`.hashes.json` 哈希记录
 - `clipboards/messages.db` — 留言板（SQLite，标准库 `sqlite3`，WAL）。全员共享一块板，页面只展示最近 5 条（`BOARD_VISIBLE`），更早的留在库里。**代码不读旧的 `clipboards/<user>.txt`**（一次性导入已完成，别再往启动流程里加兼容迁移）
@@ -73,13 +73,14 @@ for f in static/js/*.js; do node --check "$f" || echo "FAIL $f"; done
 
 ## 架构与协议要点
 
-- 分片上传协议（前端↔后端必须一致）：分片 = 裸 body POST `/api/upload/chunk?username=<u>&filename=<原文件名>`（filename 仅进日志与分片目录的 `meta.json`，绝不参与拼路径；请求头只允许 latin-1 所以中文名走 query），元数据在 `X-File-Id` / `X-Chunk-Index` 请求头；首片落盘记 INFO「上传开始」，"只有开始没有合并完成"= 中断签名；合并 POST `/api/upload/merge` 必带 `total_chunks`，后端校验分片序号 0..N-1 齐全，缺片 400 并清分片；`merge_chunks` 只认 `chunk_*`（目录里还有 meta.json）
+- 分片上传协议（前端↔后端必须一致）：分片 = 裸 body POST `/api/upload/chunk?username=<u>&filename=<原文件名>`（filename 仅进日志与分片目录的 `meta.json`，绝不参与拼路径；请求头只允许 latin-1 所以中文名走 query），元数据在 `X-File-Id` / `X-Chunk-Index` 请求头；首片落盘记 INFO「上传开始」，"只有开始没有合并完成"= 中断签名；合并 POST `/api/upload/merge` 必带 `total_chunks`，后端校验分片序号 0..N-1 齐全，缺片 400 并清分片；`merge_chunks` 只认 `chunk_*`（目录里还有 meta.json）。**断点续传**：file_id 由 `FNV-1a(名|大小|lastModified)` 派生（同文件恒同 id），`GET /api/upload/status` 返回已收分片 `[{index,size}]`，前端只复用大小分毫不差的片（截断片自动重传），续传窗口即 sweep 的 24h
 - **username 只能走 query/body，绝不能放请求头**（HTTP 头仅 latin-1，中文用户名会炸）
 - 重名处理统一走 `exclusive_path()` + `open('xb')` 独占创建，绝不覆盖已有文件
 - 哈希计算全在后台，请求线程永不整读文件：merge 顺带算 + 启动对账 + 常驻 `hash-worker` 线程（`/api/files` 每次 listdir 时把无有效记录的文件搭便车入队；`/api/file/hash` 无记录时入队并返回 `computing: true`，前端每 3s 轮询到出值为止）
 - 下载：≤1GB 前端分片并行（内存约束，勿改回整文件驻留）；>1GB 走 `/api/download` 交给浏览器下载管理器（阈值 `NATIVE_DL_LIMIT`），其 ETag/Range 是断点续传依赖，勿动
 - `safe_filename` / `normalize_username` 是所有入口的路径安全防线，新接口必须接入
 - 留言板：`GET/POST /api/board`（username 仍走 query/body），全员一块板、`BOARD_VISIBLE = 5` 只取最近 5 条，更早的留在 `messages.db` 不删；INSERT 用 `_board_lock` 串行化，`GET ?after=<latest_id>` 命中最新返回 `unchanged: true`；删除走 `POST /api/board/delete`，`delete_message()` 在 `_board_lock` 里比对 `author == username`，不匹配 403、不存在 404（用户名是自选的，这条只是"界面上删自己的"，不是安全边界）；前端删完调 `reload()` 而不是 `load()`——删中间那条时 `latest_id` 不变，带 `after` 的请求会被判成"没变化"；留言文本与设备名只进 `textContent`（设备名过 `normalize_device`：压平空白、去控制字符、限长 24），长留言靠 `.clip-text.collapsed` 折到 10 行，`fitClamps()` 量过 `scrollHeight` 才决定显不显「展开」
+- 分享链路：登录页读 `?u=<用户名>` 预填（"记住我"命中时直接自动进入、不看 query）；顶栏"二维码"按钮弹 `shareOrigin()+'/?u='+当前用户` 的离线二维码（vendor/qrcode.js 现画 SVG，无在线服务依赖）
 - 存储目录锚定 `__file__`（勿改回 CWD 相对路径，会复现"/api/download 与其他接口基准分裂"）
 
 ## 约定

@@ -2,7 +2,8 @@
 
 import { api, LOW_DISK_BYTES, shareOrigin } from './api.js';
 import { formatSize } from './format.js';
-import { toast, copyText } from './ui.js';
+import { toast, copyText, openModal, closeModal, closeOnBackdrop } from './ui.js';
+import qrcode from './vendor/qrcode.js';
 
 const STORAGE_KEY = 'clipboard_last_user';
 
@@ -40,6 +41,32 @@ export function init(ctx) {
             setTimeout(() => hostBtn.classList.remove('copied'), 1500);
         });
     });
+
+    /* ---------- 访问二维码 ---------- */
+
+    const qrModal = document.getElementById('qrModal');
+    document.getElementById('qr-btn').addEventListener('click', () => {
+        shareOrigin().then(origin => {
+            const user = ctx.getUsername();
+            const url = origin + '/' + (user ? '?u=' + encodeURIComponent(user) : '');
+            const qr = qrcode(0, 'M');
+            qr.addData(url);
+            qr.make();
+            const n = qr.getModuleCount();
+            let d = '';
+            for (let r = 0; r < n; r++)
+                for (let c = 0; c < n; c++)
+                    if (qr.isDark(r, c)) d += `M${c} ${r}h1v1z`;
+            // path 里只有数字矩阵；url 不进 HTML 字符串，事后 setAttribute/textContent 挂上去
+            document.getElementById('qrBox').innerHTML =
+                `<svg viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges" role="img"><path d="${d}"/></svg>`;
+            document.querySelector('#qrBox svg').setAttribute('aria-label', url);
+            document.getElementById('qrUrl').textContent = url;
+            openModal(qrModal);
+        });
+    });
+    document.getElementById('qrModalClose').addEventListener('click', closeModal);
+    closeOnBackdrop(qrModal);
 
     /* ---------- 磁盘剩余 ---------- */
     ctx.onDiskRefresh(loadDisk);

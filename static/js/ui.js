@@ -38,6 +38,7 @@ let openMask = null;
 let lastFocused = null;
 let onCloseCb = null;
 let modalLocked = false;
+let modalGen = 0;   // 每次开/关 +1；收幕定时器只在"期间没有新 openModal"时才置 hidden
 
 function focusables(mask) {
     return Array.from(mask.querySelectorAll(
@@ -64,6 +65,7 @@ document.addEventListener('keydown', onKeydown);
 
 export function openModal(mask, opener, onClose) {
     if (openMask) closeModal();
+    modalGen++;
     openMask = mask;
     lastFocused = opener || document.activeElement;
     onCloseCb = onClose || null;
@@ -76,11 +78,12 @@ export function openModal(mask, opener, onClose) {
 export function closeModal() {
     if (!openMask || modalLocked) return;
     const mask = openMask;
+    const gen = ++modalGen;
     openMask = null;
     const cb = onCloseCb; onCloseCb = null;
     mask.classList.remove('in');
     document.body.classList.remove('modal-open');
-    setTimeout(() => { mask.hidden = true; }, 300);
+    setTimeout(() => { if (gen === modalGen) mask.hidden = true; }, 300);
     if (lastFocused && lastFocused.isConnected) lastFocused.focus();
     lastFocused = null;
     if (cb) cb();

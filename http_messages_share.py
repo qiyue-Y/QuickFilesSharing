@@ -792,6 +792,25 @@ def upload_merge():
         return jsonify({"success": False, "error": "合并失败，详情见服务端日志"})
 
 
+@app.route('/api/upload/status', methods=['GET'])
+def upload_status():
+    """断点续传：返回该 file_id 已收到的分片（前端核对大小后跳过合格片，只补缺的）"""
+    username = normalize_username(request.args.get('username', 'default'))
+    file_id = request.args.get('file_id', '')
+    if username is None or not _FILE_ID_RE.match(file_id or ''):
+        return bad_request("参数不合法")
+    chunk_dir = os.path.join(FILES_DIR, username, ".chunks", file_id)
+    received = []
+    for path in glob.glob(os.path.join(chunk_dir, "chunk_*")):
+        try:
+            idx = int(os.path.basename(path).split("_")[1])
+            received.append({"index": idx, "size": os.path.getsize(path)})
+        except (OSError, ValueError, IndexError):
+            continue
+    received.sort(key=lambda x: x["index"])
+    return jsonify({"success": True, "received": received})
+
+
 @app.route('/api/upload/abort', methods=['POST'])
 def upload_abort():
     """取消上传：丢弃该 file_id 的全部分片（前端取消按钮调用）"""

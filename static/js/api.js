@@ -1,4 +1,4 @@
-/* api.js — 14 个接口的封装与传输常量。username 只走 query/body，绝不进请求头 */
+/* api.js — 15 个接口的封装与传输常量。username 只走 query/body，绝不进请求头 */
 
 export const CHUNK_SIZE = 32 * 1024 * 1024;          // 32MB 每片
 export const PARALLEL_STREAMS = 4;                   // 4 路并行
@@ -35,6 +35,7 @@ export const api = {
     fileHash: (username, filename) => getJSON('/api/file/hash', { username, filename }),
     remove: (username, filename) => postJSON('/api/delete', { username, filename }),
     merge: (payload) => postJSON('/api/upload/merge', payload),
+    uploadStatus: (username, fileId) => getJSON('/api/upload/status', { username, file_id: fileId }),
     abortUpload: (username, fileId) => postJSON('/api/upload/abort', { username, file_id: fileId }),
 
     chunkUploadUrl: (username, filename) => url('/api/upload/chunk', { username, filename }),
