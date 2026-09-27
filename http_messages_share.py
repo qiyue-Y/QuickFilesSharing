@@ -45,7 +45,7 @@ HASHES_FILE = ".hashes.json"        # 每个用户目录下的哈希记录
 _hash_lock = threading.Lock()       # 保护哈希记录的读改写
 
 # 输入校验：username/filename/file_id 直接拼进存储路径，必须挡住路径穿越
-_USERNAME_RE = re.compile(r"^[\w-]{1,64}$")   # \w 含中文等 Unicode 字母数字
+_USERNAME_RE = re.compile(r"^[\w-]{1,32}$")   # \w 含中文等 Unicode 字母数字；上限 32 与前端 maxlength 同口径
 _FILE_ID_RE = re.compile(r"^[A-Za-z0-9]{1,64}$")
 
 # 留言板：全员共用一块板（文件仍按用户隔离），SQLite 单文件、标准库自带
@@ -227,9 +227,17 @@ def get_user_files_dir(username):
     return user_dir
 
 
+CHUNK_META = "meta.json"          # 分片目录里的元数据（文件名+开始时间），仅日志/清理用
+
+
+def chunk_dir_path(username, file_id):
+    """分片目录的纯路径，不建目录；要 mkdir 用 get_chunk_dir"""
+    return os.path.join(FILES_DIR, username, ".chunks", file_id)
+
+
 def get_chunk_dir(username, file_id):
     """获取分片临时目录"""
-    chunk_dir = os.path.join(FILES_DIR, username, ".chunks", file_id)
+    chunk_dir = chunk_dir_path(username, file_id)
     if not os.path.exists(chunk_dir):
         os.makedirs(chunk_dir)
     return chunk_dir
@@ -238,7 +246,7 @@ def get_chunk_dir(username, file_id):
 def cleanup_chunks(username, file_id):
     """清理分片临时目录。取消上传时可能还有分片线程握着句柄在写（Windows 删不掉，改名也被挡），
     重试等写线程松手；仍删不掉只记日志，留给下次启动的 sweep 兜底"""
-    chunk_dir = os.path.join(FILES_DIR, username, ".chunks", file_id)
+    chunk_dir = chunk_dir_path(username, file_id)
     for _ in range(5):
         shutil.rmtree(chunk_dir, ignore_errors=True)
         if not os.path.isdir(chunk_dir):
@@ -248,11 +256,12 @@ def cleanup_chunks(username, file_id):
 
 
 def read_chunk_filename(chunk_dir):
-    """读分片目录里的 meta.json 拿原文件名，仅用于日志；没有/坏了返回 ?"""
+    """读分片目录里的 meta.json 拿原文件名，仅用于日志；没有/坏了记一条 warning 返回 ?"""
     try:
-        with open(os.path.join(chunk_dir, "meta.json"), "r", encoding="utf-8") as f:
+        with open(os.path.join(chunk_dir, CHUNK_META), "r", encoding="utf-8") as f:
             return json.load(f).get("filename", "?")
-    except (OSError, ValueError):
+    except (OSError, ValueError) as e:
+        log.warning("分片元信息读取失败（按 ? 处理）: %s: %s", chunk_dir, e)
         return "?"
 
 
@@ -493,7 +502,8 @@ def sweep_stale_chunks(max_age_hours=24):
                 chunk_names = [n for n in entries if n.startswith("chunk_")]
                 try:
                     total_bytes = sum(os.path.getsize(os.path.join(chunk_dir, n)) for n in chunk_names)
-                except OSError:
+                except OSError as e:
+                    log.warning("分片大小统计失败（按 ? 处理）: %s: %s", chunk_dir, e)
                     total_bytes = -1
                 log.info(
                     "清理未完成上传: user=%s file_id=%s file=%s 分片数=%d 已收=%s 最后写入=%s",
@@ -709,7 +719,7 @@ def file_hash():
         enqueue_hash(user_dir, filename)
         log.info("校验码未就绪，转后台计算: user=%s file=%s size=%s", username, filename, human_size(file_size))
         return jsonify({"success": True, "name": filename, "size": file_size, HASH_ALGO: None, "computing": True})
-    return jsonify({"success": True, "name": filename, "size": file_size, HASH_ALGO: digest, "cached": True})
+    return jsonify({"success": True, "name": filename, "size": file_size, HASH_ALGO: digest})
 
 
 @app.route('/api/upload/chunk', methods=['POST'])
@@ -746,7 +756,7 @@ def upload_chunk():
 
         # 首片落盘即记「上传开始」+ meta.json：只有开始没有合并完成的 file_id 就是中断签名
         if idx == 0:
-            meta_path = os.path.join(chunk_dir, "meta.json")
+            meta_path = os.path.join(chunk_dir, CHUNK_META)
             if not os.path.exists(meta_path):
                 with open(meta_path, "w", encoding="utf-8") as f:
                     json.dump({"filename": display_name, "started": time.time()}, f, ensure_ascii=False)
@@ -802,7 +812,7 @@ def upload_status():
     file_id = request.args.get('file_id', '')
     if username is None or not _FILE_ID_RE.match(file_id or ''):
         return bad_request("参数不合法")
-    chunk_dir = os.path.join(FILES_DIR, username, ".chunks", file_id)
+    chunk_dir = chunk_dir_path(username, file_id)
     received = []
     for path in glob.glob(os.path.join(chunk_dir, "chunk_*")):
         try:
@@ -823,7 +833,7 @@ def upload_abort():
         file_id = data.get('file_id', '')
         if username is None or not _FILE_ID_RE.match(file_id or ''):
             return bad_request("参数不合法")
-        chunk_dir = os.path.join(FILES_DIR, username, ".chunks", file_id)
+        chunk_dir = chunk_dir_path(username, file_id)
         file_name = read_chunk_filename(chunk_dir)
         cleanup_chunks(username, file_id)
         log.info("上传已取消，清理分片: user=%s file=%s file_id=%s", username, file_name, file_id)

@@ -45,23 +45,27 @@ export function init(ctx) {
     /* ---------- 访问二维码 ---------- */
 
     const qrModal = document.getElementById('qrModal');
+
+    /** 矩阵→SVG path 的拼装收口在这一个函数里；path 只有数字，url 走 setAttribute/textContent 不进 HTML 串 */
+    function renderQr(url) {
+        const qr = qrcode(0, 'M');
+        qr.addData(url);
+        qr.make();
+        const n = qr.getModuleCount();
+        let d = '';
+        for (let r = 0; r < n; r++)
+            for (let c = 0; c < n; c++)
+                if (qr.isDark(r, c)) d += `M${c} ${r}h1v1z`;
+        document.getElementById('qrBox').innerHTML =
+            `<svg viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges" role="img"><path d="${d}"/></svg>`;
+        document.querySelector('#qrBox svg').setAttribute('aria-label', url);
+        document.getElementById('qrUrl').textContent = url;
+    }
+
     document.getElementById('qr-btn').addEventListener('click', () => {
         shareOrigin().then(origin => {
             const user = ctx.getUsername();
-            const url = origin + '/' + (user ? '?u=' + encodeURIComponent(user) : '');
-            const qr = qrcode(0, 'M');
-            qr.addData(url);
-            qr.make();
-            const n = qr.getModuleCount();
-            let d = '';
-            for (let r = 0; r < n; r++)
-                for (let c = 0; c < n; c++)
-                    if (qr.isDark(r, c)) d += `M${c} ${r}h1v1z`;
-            // path 里只有数字矩阵；url 不进 HTML 字符串，事后 setAttribute/textContent 挂上去
-            document.getElementById('qrBox').innerHTML =
-                `<svg viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges" role="img"><path d="${d}"/></svg>`;
-            document.querySelector('#qrBox svg').setAttribute('aria-label', url);
-            document.getElementById('qrUrl').textContent = url;
+            renderQr(origin + '/' + (user ? '?u=' + encodeURIComponent(user) : ''));
             openModal(qrModal);
         });
     });

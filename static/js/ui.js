@@ -34,11 +34,17 @@ export function copyText(text) {
 
 /* ---------- 弹窗 ---------- */
 
+/** 代际计数：next() 领新号，is(g) 判断 g 是否仍是最新一代——作废"关窗/开窗之后才回来的旧回调" */
+export function createGeneration() {
+    let gen = 0;
+    return { next: () => ++gen, is: g => g === gen };
+}
+
 let openMask = null;
 let lastFocused = null;
 let onCloseCb = null;
 let modalLocked = false;
-let modalGen = 0;   // 每次开/关 +1；收幕定时器只在"期间没有新 openModal"时才置 hidden
+const modalGen = createGeneration();
 
 function focusables(mask) {
     return Array.from(mask.querySelectorAll(
@@ -65,7 +71,7 @@ document.addEventListener('keydown', onKeydown);
 
 export function openModal(mask, opener, onClose) {
     if (openMask) closeModal();
-    modalGen++;
+    modalGen.next();
     openMask = mask;
     lastFocused = opener || document.activeElement;
     onCloseCb = onClose || null;
@@ -78,12 +84,12 @@ export function openModal(mask, opener, onClose) {
 export function closeModal() {
     if (!openMask || modalLocked) return;
     const mask = openMask;
-    const gen = ++modalGen;
+    const gen = modalGen.next();
     openMask = null;
     const cb = onCloseCb; onCloseCb = null;
     mask.classList.remove('in');
     document.body.classList.remove('modal-open');
-    setTimeout(() => { if (gen === modalGen) mask.hidden = true; }, 300);
+    setTimeout(() => { if (modalGen.is(gen)) mask.hidden = true; }, 300);
     if (lastFocused && lastFocused.isConnected) lastFocused.focus();
     lastFocused = null;
     if (cb) cb();
@@ -131,7 +137,8 @@ confirmOk.addEventListener('click', async () => {
     modalLocked = true;
     confirmOk.disabled = confirmCancel.disabled = true;
     let done;
-    try { done = await confirmOnOk(); } catch (e) { done = false; }
+    try { done = await confirmOnOk(); }
+    catch (e) { console.warn('confirmDialog onOk 抛错，按返回 false 处理', e); done = false; }
     modalLocked = false;
     confirmOk.disabled = confirmCancel.disabled = false;
     if (done !== false) { settleConfirm(true); closeModal(); }

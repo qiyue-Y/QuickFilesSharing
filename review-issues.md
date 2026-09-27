@@ -33,13 +33,13 @@
 | C-0925-4 | `openModal` 重入：弹窗已开时再开同一 mask，旧 closeModal 的 300ms 延迟 hidden 会把新开的窗隐藏 | 待验收（2026-09-25 已修） | 低 | `docs/2026-09-25.md`（原 A-0925-6） |
 | C-0926-1 | 1.0 评审：二维码弹窗新引入裸色值 `#101418`，违反"色相只在 tokens 定义" | 待验收（2026-09-26 已修） | 低 | `docs/2026-09-26.md` |
 | C-0926-2 | 1.0 评审：hash-worker 算完重取签名落盘，文件中途被换会"旧哈希配新签名"报错值 | 待验收（2026-09-26 已修） | 中 | `docs/2026-09-26.md` |
-| A-0926-1 | `.chunks/<file_id>` 路径与 `"meta.json"` 字面量各手抄 3 处 | 待定 | 低 | 本文件正文 |
-| A-0926-2 | modal-close SVG 三处重复；三套同形代际计数；QR 矩阵→SVG 拼装散在调用方 | 待定 | 低 | 本文件正文 |
+| C-0926-3 | `.chunks` 路径与 meta.json 字面量收口 `chunk_dir_path()` + `CHUNK_META` | 待验收（2026-09-26 已修） | 低 | `docs/2026-09-26.md`（原 A-0926-1） |
+| C-0926-4 | 代际计数收口 `createGeneration()`、QR 矩阵→SVG 收口 `renderQr()`；modal-close SVG 按仓库标准豁免 | 待验收（2026-09-26 已修） | 低 | `docs/2026-09-26.md`（原 A-0926-2） |
 | A-0926-3 | `shareOrigin()` 无缓存：4 调用点各打一次 `/api/server-addr`，弹窗打开推迟一个 RTT | 待定 | 低 | 本文件正文 |
-| A-0926-4 | 用户名长度三处口径不一：32（maxlength/slice）vs 64（`_USERNAME_RE`） | 待定 | 低 | 本文件正文 |
+| C-0926-5 | 用户名长度上限统一 32（后端正则/弹层/登录三处同值） | 待验收（2026-09-26 已修） | 低 | `docs/2026-09-26.md`（原 A-0926-4） |
 | A-0926-5 | 元素 id 命名混用 kebab 与 camel | 待定 | 低 | 本文件正文 |
-| A-0926-6 | `/api/file/hash` 的 `cached` 字段恒为 true 且前端已不读（死字段） | 待定 | 低 | 本文件正文 |
-| A-0926-7 | 静默兜底无日志 4 处（后端 2 + 前端 2） | 待定 | 低 | 本文件正文 |
+| C-0926-6 | `/api/file/hash` 死字段 `cached` 删除 | 待验收（2026-09-26 已修） | 低 | `docs/2026-09-26.md`（原 A-0926-6） |
+| C-0926-7 | 静默兜底 4 处补日志（后端 2 warning + 前端 2 console.warn） | 待验收（2026-09-26 已修） | 低 | `docs/2026-09-26.md`（原 A-0926-7） |
 | C-4 | 磁盘水位显示 | 已完结 2026-09-20 | — | `docs/2026-09-20.md`（随 R3-P0-1） |
 | UI-D1 | 剪切板做成多条消息流 | 已完结 2026-09-21 | — | `docs/2026-09-21.md`（B1 留言板） |
 | P0-1…P2-20 | 第一轮 20 条 | 已完结 2026-09-19 | — | `docs/2026-09-19.md` |
@@ -106,24 +106,19 @@
 | C-0925-5 | 分享链路：登录页 `?u=` 预填用户名；顶栏"二维码"按钮弹离线自绘访问二维码（`shareOrigin()+'/?u='+用户`，自托管 vendor/qrcode.js） | 2026-09-25 | docs/2026-09-25.md |
 | C-0925-6 | 上传断点续传：file_id 改 FNV-1a(名\|大小\|lastModified) 派生；新接口 `GET /api/upload/status` 返回已收分片；前端只复用"序号合法且大小分毫不差"的片，截断片自动重传 | 2026-09-25 | docs/2026-09-25.md |
 | D-0925-2 | client.p12 暴露闭环：2026-09-25 复查 `files/` 下 p12/pfx/key/pem/jks 全盘零命中（文件已被用户移出），无需改名；点前缀隐身机制已实测可用（`.secret.bin` 列表不现、下载 400） | 2026-09-25 | docs/2026-09-25.md |
+| C-0926-1 | 1.0 评审修复：二维码弹窗裸色值 `#101418` → `var(--pond-deep)` | 2026-09-26 | docs/2026-09-26.md |
+| C-0926-2 | 1.0 评审修复：hash-worker 落盘改用计算前签名（`record_hash` 加 signature 参数），文件中途被换自动判失效重算 | 2026-09-26 | docs/2026-09-26.md |
+| C-0926-3 | 后端 `.chunks/<file_id>` 路径三处手抄收口 `chunk_dir_path()`（纯路径）+ `CHUNK_META` 常量 | 2026-09-26 | docs/2026-09-26.md |
+| C-0926-4 | 前端三套同形代际计数收口 ui.js `createGeneration()`；QR 矩阵→SVG 拼装收口 hud.js `renderQr()`；modal-close SVG 重复按"三行相似"标准豁免 | 2026-09-26 | docs/2026-09-26.md |
+| C-0926-5 | 用户名长度统一 32：`_USERNAME_RE` 64→32、弹层 maxlength 16→32（登录框/预填本已 32） | 2026-09-26 | docs/2026-09-26.md |
+| C-0926-6 | `/api/file/hash` 删除恒真的 `cached` 死字段 | 2026-09-26 | docs/2026-09-26.md |
+| C-0926-7 | 4 处静默兜底补日志：`read_chunk_filename`/sweep 统计失败 `log.warning`，confirmOk/verify Worker 异常 `console.warn` | 2026-09-26 | docs/2026-09-26.md |
 
 ---
 
 ## 待实施
 
-> 2026-09-26 代码评审（1.0...HEAD 双轴）登记的判断项，全部 A 待定，未拍板不动代码。
-
-### A-0926-1 `.chunks` 路径与 meta.json 字面量手抄 3 处
-
-- 问题：`os.path.join(FILES_DIR, username, ".chunks", file_id)` 出现在 `get_chunk_dir` / `cleanup_chunks` / `upload_status`，`"meta.json"` 字面量 3 处（写入、abort 读、sweep 读）。`get_chunk_dir` 带 mkdir 副作用，只读场景不敢复用才手抄。
-- 方案：拆 `chunk_dir_path(username, file_id)`（纯路径，无副作用）+ `CHUNK_META = "meta.json"` 常量，三处引用它。
-- 重要性：低。不改也不会坏，但目录布局一改就是三处（Shotgun Surgery）。
-
-### A-0926-2 三处重复形状：modal-close SVG / 代际计数 / QR 拼装
-
-- 问题：① index.html 三个弹窗的关闭 `<svg>` 逐字符相同；② `hashReq`（files.js）、`verifyToken`（files.js）、`modalGen`（ui.js）三套同构"代际计数作废旧回调"各写一遍；③ QR 矩阵→SVG path 的 `M${c} ${r}h1v1z` 拼装散在 hud.js 调用方（Feature Envy）。
-- 方案：① HTML 无组件机制，可接受或 JS 统一注入；② 提 `ui.js` 一个小工厂 `makeStaleGuard()`；③ path 拼装挪进 verify 同类的小模块或 hud 内部函数收口。
-- 重要性：低，判断项——仓库标准"三行相似好过过早抽象"，②③值得，①可豁免。
+> 2026-09-26 代码评审登记的判断项，拍板的五条已实施转 C-0926-3~7，剩下两条继续挂 A。
 
 ### A-0926-3 shareOrigin() 无缓存
 
@@ -131,29 +126,11 @@
 - 方案：30~60s TTL 缓存（DHCP 换 IP 低频，一分钟内旧值无伤）或页面加载时预取一次。当初特意不缓存是为防 DHCP 换 IP 给旧值——TTL 是折中。
 - 重要性：低。本地请求毫秒级，纯体验与开销问题。
 
-### A-0926-4 用户名长度三处口径不一
-
-- 问题：`index.html` `maxlength="32"`、login.js 预填 `slice(0, 32)`，后端 `_USERNAME_RE` 却是 `{1,64}`；弹层输入框 `maxlength="16"` 是第四个值。
-- 方案：定一个真值（建议 32），后端降到同值或前端统一引用一处常量；删掉多余的那个数字。
-- 重要性：低。目前只会静默截断，无正确性风险。
-
 ### A-0926-5 元素 id 命名混用 kebab 与 camel
 
 - 问题：`qr-btn`、`confirm-modal`、`user-chip` 是 kebab；`qrModal`、`hashModalClose`、`popInput` 相关是 camel，同页并存。
 - 方案：下次动 HTML 时统一 kebab（HTML 惯例），JS 变量保持 camel。纯改名，无行为变化。
 - 重要性：低。
-
-### A-0926-6 `/api/file/hash` 死字段 cached
-
-- 问题：接口现在恒返回 `"cached": true`（无记录一律走 computing 分支），前端已不读该字段。
-- 方案：删字段；或保留但明确语义。建议直接删。
-- 重要性：低。
-
-### A-0926-7 静默兜底 4 处不带日志
-
-- 问题：后端 `read_chunk_filename` 读不到 meta 静默返回 `"?"`、sweep 里 `getsize` 失败静默 `-1`；前端 ui.js confirmOk `catch { done = false }` 丢掉错误对象、verify.js `w.onerror` 只报固定文案丢事件。约定要求异常必须留痕（log.exception / console / toast）。
-- 方案：后端两处补 `log.warning`（带路径）；前端两处 `console.warn` 或把原因拼进现有文案。
-- 重要性：低。都是"兜底本身正确、只是无声"。
 
 ## 候选改进（未排期）
 

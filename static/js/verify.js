@@ -77,7 +77,10 @@ export function verifyFile(file, onProgress) {
         const w = new Worker(blobUrl);
         const settle = fn => { w.terminate(); URL.revokeObjectURL(blobUrl); fn(); };
         w.onmessage = e => settle(() => resolve(e.data.hex));
-        w.onerror = () => settle(() => reject(new Error('校验线程异常')));
+        w.onerror = e => {
+            console.warn('SHA-256 Worker 异常', e);
+            settle(() => reject(new Error('校验线程异常' + (e && e.message ? '：' + e.message : ''))));
+        };
         (async () => {
             w.postMessage({ init: true });
             const CH = 8 * 1024 * 1024;

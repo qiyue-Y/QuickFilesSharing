@@ -3,7 +3,7 @@
 import { api, shareOrigin } from './api.js';
 import { verifyFile, VERIFY_MAX } from './verify.js';
 import { formatSize, formatDate, escapeHtml, fileIcon } from './format.js';
-import { toast, copyText, openModal, closeModal, closeOnBackdrop, confirmDialog } from './ui.js';
+import { toast, copyText, openModal, closeModal, closeOnBackdrop, confirmDialog, createGeneration } from './ui.js';
 
 const listEl = document.getElementById('file-list');
 const modal = document.getElementById('hashModal');
@@ -152,7 +152,7 @@ function removeFile(cell, filename) {
 
 /* ---------- 弹窗 ---------- */
 
-let hashReq = 0;   // 每次打开弹窗 +1，旧轮询凭号作废
+const hashReq = createGeneration();   // 每次打开弹窗领新号，旧轮询凭号作废
 
 function openHashModal(filename, trigger) {
     const valueInput = document.getElementById('hashModalValue');
@@ -166,15 +166,15 @@ function openHashModal(filename, trigger) {
         valueInput.value = '';
         valueInput.placeholder = '计算中…';
         hint.textContent = '正在获取校验码…';
-        verifyToken++;
+        verifyGen.next();
         showVerify('');
         openModal(modal, trigger);
 
-        const reqId = ++hashReq;
+        const reqId = hashReq.next();
         (function fetchHash() {
             api.fileHash(username, filename)
                 .then(info => {
-                    if (reqId !== hashReq || modal.hidden) return;
+                    if (!hashReq.is(reqId) || modal.hidden) return;
                     if (!info.success) throw new Error(info.error || '获取失败');
                     if (info.computing) {
                         hint.textContent = '服务端正在计算校验码（大文件需数分钟），每 3 秒自动重试…';
@@ -190,7 +190,7 @@ function openHashModal(filename, trigger) {
                         + '接收端下载完后用下面的命令算一遍，和这串对比。';
                 })
                 .catch(err => {
-                    if (reqId !== hashReq || modal.hidden) return;
+                    if (!hashReq.is(reqId) || modal.hidden) return;
                     valueInput.placeholder = '获取失败';
                     hint.textContent = '获取校验码失败：' + err.message;
                 });
@@ -206,7 +206,7 @@ closeOnBackdrop(modal);
 const verifyDrop = document.getElementById('verifyDrop');
 const verifyInput = document.getElementById('verifyInput');
 const verifyResult = document.getElementById('verifyResult');
-let verifyToken = 0;
+const verifyGen = createGeneration();
 
 function showVerify(msg, state) {
     verifyResult.hidden = !msg;
@@ -224,21 +224,21 @@ async function runVerify(file) {
         showVerify(`文件 ${formatSize(file.size)} 超过本页 2GB 上限，请用上面的命令行校验`, 'run');
         return;
     }
-    const token = ++verifyToken;
+    const token = verifyGen.next();
     const started = performance.now();
     try {
         const digest = await verifyFile(file, p => {
-            if (token === verifyToken)
+            if (verifyGen.is(token))
                 showVerify(`计算中 ${(p * 100).toFixed(0)}%（${formatSize(file.size * p)} / ${formatSize(file.size)}）`, 'run');
         });
-        if (token !== verifyToken) return;
+        if (!verifyGen.is(token)) return;
         const secs = (performance.now() - started) / 1000;
         if (digest === expected)
             showVerify(`✅ 与服务器记录一致 · ${formatSize(file.size)} 用时 ${secs.toFixed(1)}s（约 ${formatSize(file.size / secs)}/s）`, 'ok');
         else
             showVerify(`❌ 不一致！本页算出 ${digest}，服务器记录 ${expected}。文件可能没下完或被改动`, 'bad');
     } catch (err) {
-        if (token === verifyToken) showVerify('校验失败：' + err.message, 'bad');
+        if (verifyGen.is(token)) showVerify('校验失败：' + err.message, 'bad');
     }
 }
 
