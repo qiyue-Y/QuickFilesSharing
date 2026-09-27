@@ -369,9 +369,12 @@ def file_signature(file_path):
     return st.st_size, st.st_mtime
 
 
-def record_hash(user_dir, filename, digest):
-    """记录文件的哈希，连同大小与修改时间一起存，供判断记录是否还有效"""
-    signature = file_signature(os.path.join(user_dir, filename))
+def record_hash(user_dir, filename, digest, signature=None):
+    """记录文件的哈希，连同大小与修改时间一起存，供判断记录是否还有效。
+    signature 传入计算前抓取的指纹：长耗时计算后绝不重新 stat，
+    否则文件中途被换会把旧内容的哈希配上新签名，known_hash 判有效报错值"""
+    if signature is None:
+        signature = file_signature(os.path.join(user_dir, filename))
     if signature is None:
         return
     with _hash_lock:
@@ -547,7 +550,7 @@ def hash_worker_loop():
             started = time.monotonic()
             log.info("后台计算校验码: file=%s size=%s", filename, human_size(signature[0]))
             digest = hash_file(full)
-            record_hash(user_dir, filename, digest)
+            record_hash(user_dir, filename, digest, signature)
             log.info("后台校验码完成: file=%s %s=%s 耗时=%.2fs",
                      filename, HASH_ALGO, digest, time.monotonic() - started)
         except Exception:

@@ -60,7 +60,7 @@
 
 # 语法检查（仓库无测试套件，验证以 py_compile + node --check + 接口实测为主）
 .venv/Scripts/python.exe -m py_compile http_messages_share.py
-# 前端逐个语法检查（12 个模块）
+# 前端逐个语法检查（13 个模块）
 for f in static/js/*.js; do node --check "$f" || echo "FAIL $f"; done
 
 # 死 CSS 核对：类选择器与 HTML/JS 引用做集合差，零命中退出码 1
