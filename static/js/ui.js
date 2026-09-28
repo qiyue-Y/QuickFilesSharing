@@ -1,6 +1,6 @@
 /* ui.js — toast 状态提示、复制兜底、弹窗通用开关与通用确认框（spec §4.3 / §4.4） */
 
-const TOAST_HOST = document.getElementById('toastHost');
+const TOAST_HOST = document.getElementById('toast-host');
 const MAX_TOASTS = 3;
 
 /** 替代旧的 showStatus / uploadStatus 内联样式 */
@@ -106,10 +106,10 @@ export function closeOnBackdrop(mask) {
  * onOk 返回 false 或抛错则保持打开、按钮恢复，成功才关窗。取消/Esc/遮罩 resolve(false)。 */
 
 const confirmMask = document.getElementById('confirm-modal');
-const confirmTitle = document.getElementById('confirmTitle');
-const confirmBody = document.getElementById('confirmBody');
-const confirmOk = document.getElementById('confirmOk');
-const confirmCancel = document.getElementById('confirmCancel');
+const confirmTitle = document.getElementById('confirm-title');
+const confirmBody = document.getElementById('confirm-body');
+const confirmOk = document.getElementById('confirm-ok');
+const confirmCancel = document.getElementById('confirm-cancel');
 let confirmResolve = null;
 let confirmOnOk = null;
 
@@ -145,5 +145,5 @@ confirmOk.addEventListener('click', async () => {
 });
 
 confirmCancel.addEventListener('click', closeModal);
-document.getElementById('confirmClose').addEventListener('click', closeModal);
+document.getElementById('confirm-close').addEventListener('click', closeModal);
 closeOnBackdrop(confirmMask);

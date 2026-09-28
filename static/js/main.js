@@ -18,7 +18,7 @@ const listeners = {
     boardLoad: [],
 };
 
-const mainGrid = document.getElementById('mainGrid');
+const mainGrid = document.getElementById('main-grid');
 
 const ctx = {
     getUsername: () => currentUsername,

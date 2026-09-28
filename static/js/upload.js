@@ -8,7 +8,7 @@ import { makeRow } from './files.js';
 import { bindRowProgress } from './progress.js';
 import { acquire, release, cancelActive } from './transfer.js';
 
-const fileInput = document.getElementById('fileInput');
+const fileInput = document.getElementById('file-input');
 const listEl = document.getElementById('file-list');
 
 let ctxRef = null;
@@ -181,7 +181,7 @@ function uploadOne(file, batch) {
                         }
                     }
                 }
-            } catch (e) { /* 问不到就当全新上传 */ }
+            } catch (e) { console.warn('查询已收分片失败，按全新上传处理', e); }
             if (skip.size) {
                 prog.setCompleted(skip.size);
                 toast(`检测到 ${skip.size}/${totalChunks} 片已传，从断点继续`, 'info');

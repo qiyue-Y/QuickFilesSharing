@@ -35,19 +35,19 @@
             </div>
             <div class="hud">
                 <button type="button" class="hud-link" id="ip-copy" title="点击复制访问地址">
-                    <span class="live-dot" aria-hidden="true"></span><span class="hud-ip-text" id="hudHost">-</span>
+                    <span class="live-dot" aria-hidden="true"></span><span class="hud-ip-text" id="hud-host">-</span>
                 </button>
                 <button type="button" class="hud-link" id="qr-btn" title="显示访问二维码（登录后带上当前用户）">二维码</button>
-                <span class="hud-sep" id="hudDiskSep" aria-hidden="true" hidden></span>
-                <span class="hud-disk" id="hudDisk" hidden></span>
-                <span class="user-wrap" id="userWrap" hidden>
+                <span class="hud-sep" id="hud-disk-sep" aria-hidden="true" hidden></span>
+                <span class="hud-disk" id="hud-disk" hidden></span>
+                <span class="user-wrap" id="user-wrap" hidden>
                     <button type="button" class="user-chip" id="user-chip" aria-haspopup="dialog" aria-expanded="false" title="点击更换用户">
                         <span class="user-avatar" id="user-avatar" title="-">--</span>
                     </button>
                     <div class="user-pop" id="user-pop" role="dialog" aria-label="切换用户">
                         <p class="pop-label">切换用户</p>
                         <input type="text" class="pop-input" id="pop-input" maxlength="32" placeholder="输入新用户名" autocomplete="off">
-                        <label class="qcheck pop-check"><input type="checkbox" id="popRemember"><span class="qcheck-box" aria-hidden="true"></span><span class="qcheck-text">记住我</span></label>
+                        <label class="qcheck pop-check"><input type="checkbox" id="pop-remember"><span class="qcheck-box" aria-hidden="true"></span><span class="qcheck-text">记住我</span></label>
                         <div class="pop-actions">
                             <button type="button" class="qbtn sm" id="pop-logout">退出</button>
                             <button type="button" class="qbtn sm" id="pop-cancel">取消</button>
@@ -76,16 +76,16 @@
             </figure>
         </section>
 
-        <div class="grid2" id="mainGrid" hidden>
+        <div class="grid2" id="main-grid" hidden>
             <section class="panel reveal" id="files-panel">
                 <div class="panel-head">
                     <div class="panel-titles">
                         <h2>文件库</h2>
                         <p class="zsub">沉在池底的东西，捞起就能带走 · 同一时刻只跑一个传输</p>
                     </div>
-                    <label class="qbtn primary" id="uploadBtn" title="支持 30GB 以内的文件，可多选，或拖到页面任意位置">
+                    <label class="qbtn primary" id="upload-btn" title="支持 30GB 以内的文件，可多选，或拖到页面任意位置">
                         上传文件
-                        <input type="file" id="fileInput" multiple>
+                        <input type="file" id="file-input" multiple>
                     </label>
                 </div>
                 <div id="file-list"></div>
@@ -95,7 +95,7 @@
                         把命令复制到<strong>接收端电脑</strong>执行，文件名换成实际下载到的名字
                         （浏览器遇到同名文件可能加了 <code>(1)</code>），输出的校验码与页面上的 SHA-256 比对。
                     </div>
-                    <div class="verify-list" id="verifyHelpBox"></div>
+                    <div class="verify-list" id="verify-help-box"></div>
                     <div class="verify-hint">
                         只比对 <strong>64 位十六进制字符</strong>，<strong>大小写和空格不用管</strong>；
                         certutil 的输出常带空格和大写，只看哈希那一行。
@@ -109,13 +109,13 @@
                         <h2>留言板</h2>
                         <p class="zsub">全员共用一块板，只展示最近 5 条 · 文件仍按用户隔离</p>
                     </div>
-                    <button type="button" class="qbtn sm" id="clipRefresh">刷新</button>
+                    <button type="button" class="qbtn sm" id="clip-refresh">刷新</button>
                 </div>
                 <div id="clip-list"><p class="clip-list-empty">还没有留言</p></div>
                 <div class="sendrow">
                     <input id="clip-input" type="text" maxlength="2000"
                            placeholder="写点什么，轻轻放进池子里…" autocomplete="off">
-                    <button type="button" class="qbtn primary" id="clipSend">发送</button>
+                    <button type="button" class="qbtn primary" id="clip-send">发送</button>
                 </div>
             </section>
         </div>
@@ -133,7 +133,7 @@
 
         <div class="stage-scroll">
             <div class="portal">
-                <figure class="arch-exhibit" id="archExhibit">
+                <figure class="arch-exhibit" id="arch-exhibit">
                     <div class="arch">
                         <div class="arch-inner">
                             <img src="/static/img/monet-lilies.jpg" alt="暮色池面上一株盛开的粉色睡莲，莫奈印象派风格油画" width="2048" height="2048">
@@ -145,28 +145,28 @@
                     </figcaption>
                 </figure>
 
-                <div class="login-card" id="loginCard">
+                <div class="login-card" id="login-card">
                     <p class="eyebrow">Quick<span class="dot">&nbsp;&middot;&nbsp;</span>File<span class="dot">&nbsp;&middot;&nbsp;</span>Sharing</p>
                     <h1 class="qtitle" aria-label="QFS">
                         <span class="tl">Q</span><span class="tl">F</span><span class="tl">S</span>
                     </h1>
                     <p class="welcome">以用户名进入你的共享池</p>
 
-                    <form id="loginForm" novalidate>
-                        <div class="field" id="loginField">
-                            <label for="usernameInput">用户名</label>
+                    <form id="login-form" novalidate>
+                        <div class="field" id="login-field">
+                            <label for="username-input">用户名</label>
                             <div class="input-wrap">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                     <circle cx="12" cy="8.2" r="3.6"></circle>
                                     <path d="M5.2 19.6c.9-3.5 3.5-5.1 6.8-5.1s5.9 1.6 6.8 5.1"></path>
                                 </svg>
-                                <input id="usernameInput" name="username" type="text"
+                                <input id="username-input" name="username" type="text"
                                        placeholder="输入用户名，留空 = default"
                                        autocomplete="off" spellcheck="false" maxlength="32">
                             </div>
                         </div>
 
-                        <label class="qcheck remember"><input type="checkbox" id="rememberUserLogin"><span class="qcheck-box" aria-hidden="true"></span><span class="qcheck-text">记住我，下次自动进入</span></label>
+                        <label class="qcheck remember"><input type="checkbox" id="remember-user-login"><span class="qcheck-box" aria-hidden="true"></span><span class="qcheck-text">记住我，下次自动进入</span></label>
 
                         <button type="submit" class="enter-btn">
                             <span class="btn-label">进入</span>
@@ -179,7 +179,7 @@
 
                     <p class="card-foot">
                         <span>可信局域网 &middot; 无需密码</span>
-                        <button type="button" class="card-clear" id="clearRememberBtn" hidden>清除记住的用户</button>
+                        <button type="button" class="card-clear" id="clear-remember-btn" hidden>清除记住的用户</button>
                     </p>
                 </div>
             </div>
@@ -189,50 +189,50 @@
     </section>
 
     <!-- 文件信息弹窗（spec §4.3） -->
-    <div id="hashModal" class="modal-mask" hidden>
-        <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="hashModalTitle">
+    <div id="hash-modal" class="modal-mask" hidden>
+        <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="hash-modal-title">
             <div class="modal-head">
-                <h3 id="hashModalTitle">文件信息</h3>
-                <button type="button" class="modal-close" id="hashModalClose" aria-label="关闭"><svg viewBox="0 0 14 14" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><line x1="2.8" y1="2.8" x2="11.2" y2="11.2"/><line x1="11.2" y1="2.8" x2="2.8" y2="11.2"/></svg></button>
+                <h3 id="hash-modal-title">文件信息</h3>
+                <button type="button" class="modal-close" id="hash-modal-close" aria-label="关闭"><svg viewBox="0 0 14 14" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><line x1="2.8" y1="2.8" x2="11.2" y2="11.2"/><line x1="11.2" y1="2.8" x2="2.8" y2="11.2"/></svg></button>
             </div>
-            <div class="modal-file" id="hashModalFile"></div>
-            <input id="hashModalValue" readonly>
-            <div class="modal-hint" id="hashModalHint"></div>
+            <div class="modal-file" id="hash-modal-file"></div>
+            <input id="hash-modal-value" readonly>
+            <div class="modal-hint" id="hash-modal-hint"></div>
             <div class="verify-title">懒人通道：把下载好的文件拖进来，本页直接算给你看（≤2GB）</div>
-            <label class="verify-drop" id="verifyDrop">拖入文件，或点击选择<input type="file" id="verifyInput"></label>
-            <div class="verify-result" id="verifyResult" hidden></div>
+            <label class="verify-drop" id="verify-drop">拖入文件，或点击选择<input type="file" id="verify-input"></label>
+            <div class="verify-result" id="verify-result" hidden></div>
             <div class="verify-title">在接收端本机校验（复制后执行）</div>
-            <div class="verify-list" id="hashModalCmds"></div>
+            <div class="verify-list" id="hash-modal-cmds"></div>
             <div class="verify-title">命令行下载（支持断点续传，大文件推荐）</div>
-            <div class="verify-list" id="hashModalDl"></div>
+            <div class="verify-list" id="hash-modal-dl"></div>
             <div class="verify-hint">下载命令里的地址已自动换成服务器局域网 IP（本页用 localhost 打开时）；多网卡选错时手动改命令里的 IP。</div>
         </div>
     </div>
 
     <!-- 通用确认框（删文件等危险操作，ui.js confirmDialog） -->
     <div id="confirm-modal" class="modal-mask" hidden>
-        <div class="modal-box sm" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+        <div class="modal-box sm" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
             <div class="modal-head">
-                <h3 id="confirmTitle">确认</h3>
-                <button type="button" class="modal-close" id="confirmClose" aria-label="关闭"><svg viewBox="0 0 14 14" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><line x1="2.8" y1="2.8" x2="11.2" y2="11.2"/><line x1="11.2" y1="2.8" x2="2.8" y2="11.2"/></svg></button>
+                <h3 id="confirm-title">确认</h3>
+                <button type="button" class="modal-close" id="confirm-close" aria-label="关闭"><svg viewBox="0 0 14 14" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><line x1="2.8" y1="2.8" x2="11.2" y2="11.2"/><line x1="11.2" y1="2.8" x2="2.8" y2="11.2"/></svg></button>
             </div>
-            <p class="confirm-body" id="confirmBody"></p>
+            <p class="confirm-body" id="confirm-body"></p>
             <div class="modal-foot">
-                <button type="button" class="qbtn" id="confirmCancel">取消</button>
-                <button type="button" class="qbtn danger" id="confirmOk">确认</button>
+                <button type="button" class="qbtn" id="confirm-cancel">取消</button>
+                <button type="button" class="qbtn danger" id="confirm-ok">确认</button>
             </div>
         </div>
     </div>
 
     <!-- 访问二维码（hud.js 用 vendor/qrcode.js 现画，离线可用） -->
-    <div id="qrModal" class="modal-mask" hidden>
-        <div class="modal-box sm" role="dialog" aria-modal="true" aria-labelledby="qrModalTitle">
+    <div id="qr-modal" class="modal-mask" hidden>
+        <div class="modal-box sm" role="dialog" aria-modal="true" aria-labelledby="qr-modal-title">
             <div class="modal-head">
-                <h3 id="qrModalTitle">访问二维码</h3>
-                <button type="button" class="modal-close" id="qrModalClose" aria-label="关闭"><svg viewBox="0 0 14 14" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><line x1="2.8" y1="2.8" x2="11.2" y2="11.2"/><line x1="11.2" y1="2.8" x2="2.8" y2="11.2"/></svg></button>
+                <h3 id="qr-modal-title">访问二维码</h3>
+                <button type="button" class="modal-close" id="qr-modal-close" aria-label="关闭"><svg viewBox="0 0 14 14" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><line x1="2.8" y1="2.8" x2="11.2" y2="11.2"/><line x1="11.2" y1="2.8" x2="2.8" y2="11.2"/></svg></button>
             </div>
-            <div class="qr-box" id="qrBox"></div>
-            <div class="verify-hint" id="qrUrl"></div>
+            <div class="qr-box" id="qr-box"></div>
+            <div class="verify-hint" id="qr-url"></div>
         </div>
     </div>
 
@@ -240,7 +240,7 @@
         <div class="drop-veil-box">松开鼠标 · 上传到文件库</div>
     </div>
 
-    <div class="toast-host" id="toastHost" aria-live="polite"></div>
+    <div class="toast-host" id="toast-host" aria-live="polite"></div>
 
     <script type="module" src="/static/js/main.js"></script>
 </body>

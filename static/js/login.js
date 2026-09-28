@@ -8,9 +8,9 @@ import { toast } from './ui.js';
 import { rememberUser, forgetUser, rememberedUser } from './hud.js';
 
 const stage = document.getElementById('login-gate');
-const input = document.getElementById('usernameInput');
-const rememberBox = document.getElementById('rememberUserLogin');
-const clearBtn = document.getElementById('clearRememberBtn');
+const input = document.getElementById('username-input');
+const rememberBox = document.getElementById('remember-user-login');
+const clearBtn = document.getElementById('clear-remember-btn');
 
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 let busy = false;
@@ -66,7 +66,7 @@ function enter(username) {
 export function init(ctx) {
     ctxRef = ctx;
 
-    document.getElementById('loginForm').addEventListener('submit', e => {
+    document.getElementById('login-form').addEventListener('submit', e => {
         e.preventDefault();
         if (busy) return;
         enter(input.value.trim() || 'default');

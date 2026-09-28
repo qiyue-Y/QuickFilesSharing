@@ -6,7 +6,7 @@ import { formatSize, formatDate, escapeHtml, fileIcon } from './format.js';
 import { toast, copyText, openModal, closeModal, closeOnBackdrop, confirmDialog, createGeneration } from './ui.js';
 
 const listEl = document.getElementById('file-list');
-const modal = document.getElementById('hashModal');
+const modal = document.getElementById('hash-modal');
 
 /* ---------- 弹窗里的命令块 ---------- */
 
@@ -46,7 +46,7 @@ document.addEventListener('click', e => {
     setTimeout(() => { btn.textContent = '复制'; }, 1500);
 });
 
-document.getElementById('verifyHelpBox').innerHTML = verifyCommands('文件名.zip');
+document.getElementById('verify-help-box').innerHTML = verifyCommands('文件名.zip');
 
 /* ---------- 行渲染 ---------- */
 
@@ -155,14 +155,14 @@ function removeFile(cell, filename) {
 const hashReq = createGeneration();   // 每次打开弹窗领新号，旧轮询凭号作废
 
 function openHashModal(filename, trigger) {
-    const valueInput = document.getElementById('hashModalValue');
-    const hint = document.getElementById('hashModalHint');
+    const valueInput = document.getElementById('hash-modal-value');
+    const hint = document.getElementById('hash-modal-hint');
     const username = ctxRef.getUsername();
 
     shareOrigin().then(origin => {
-        document.getElementById('hashModalFile').textContent = filename;
-        document.getElementById('hashModalCmds').innerHTML = verifyCommands(filename);
-        document.getElementById('hashModalDl').innerHTML = downloadCommands(username, filename, origin);
+        document.getElementById('hash-modal-file').textContent = filename;
+        document.getElementById('hash-modal-cmds').innerHTML = verifyCommands(filename);
+        document.getElementById('hash-modal-dl').innerHTML = downloadCommands(username, filename, origin);
         valueInput.value = '';
         valueInput.placeholder = '计算中…';
         hint.textContent = '正在获取校验码…';
@@ -198,14 +198,14 @@ function openHashModal(filename, trigger) {
     });
 }
 
-document.getElementById('hashModalClose').addEventListener('click', closeModal);
+document.getElementById('hash-modal-close').addEventListener('click', closeModal);
 closeOnBackdrop(modal);
 
 /* ---------- 页面内一键校验（verify.js 的 SHA-256 Worker） ---------- */
 
-const verifyDrop = document.getElementById('verifyDrop');
-const verifyInput = document.getElementById('verifyInput');
-const verifyResult = document.getElementById('verifyResult');
+const verifyDrop = document.getElementById('verify-drop');
+const verifyInput = document.getElementById('verify-input');
+const verifyResult = document.getElementById('verify-result');
 const verifyGen = createGeneration();
 
 function showVerify(msg, state) {
@@ -218,7 +218,7 @@ function showVerify(msg, state) {
 }
 
 async function runVerify(file) {
-    const expected = document.getElementById('hashModalValue').value;
+    const expected = document.getElementById('hash-modal-value').value;
     if (!expected) { showVerify('校验码尚未就绪，稍候再放入文件', 'run'); return; }
     if (file.size > VERIFY_MAX) {
         showVerify(`文件 ${formatSize(file.size)} 超过本页 2GB 上限，请用上面的命令行校验`, 'run');

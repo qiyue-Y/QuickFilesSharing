@@ -21,15 +21,15 @@ export function rememberedUser() {
 
 export function init(ctx) {
     const hostBtn = document.getElementById('ip-copy');
-    const hostText = document.getElementById('hudHost');
-    const diskEl = document.getElementById('hudDisk');
-    const diskSep = document.getElementById('hudDiskSep');
-    const wrap = document.getElementById('userWrap');
+    const hostText = document.getElementById('hud-host');
+    const diskEl = document.getElementById('hud-disk');
+    const diskSep = document.getElementById('hud-disk-sep');
+    const wrap = document.getElementById('user-wrap');
     const chip = document.getElementById('user-chip');
     const avatar = document.getElementById('user-avatar');
     const pop = document.getElementById('user-pop');
     const popInput = document.getElementById('pop-input');
-    const popRemember = document.getElementById('popRemember');
+    const popRemember = document.getElementById('pop-remember');
 
     shareOrigin().then(origin => { hostText.textContent = new URL(origin).host; });
 
@@ -44,7 +44,7 @@ export function init(ctx) {
 
     /* ---------- 访问二维码 ---------- */
 
-    const qrModal = document.getElementById('qrModal');
+    const qrModal = document.getElementById('qr-modal');
 
     /** 矩阵→SVG path 的拼装收口在这一个函数里；path 只有数字，url 走 setAttribute/textContent 不进 HTML 串 */
     function renderQr(url) {
@@ -56,10 +56,10 @@ export function init(ctx) {
         for (let r = 0; r < n; r++)
             for (let c = 0; c < n; c++)
                 if (qr.isDark(r, c)) d += `M${c} ${r}h1v1z`;
-        document.getElementById('qrBox').innerHTML =
+        document.getElementById('qr-box').innerHTML =
             `<svg viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges" role="img"><path d="${d}"/></svg>`;
-        document.querySelector('#qrBox svg').setAttribute('aria-label', url);
-        document.getElementById('qrUrl').textContent = url;
+        document.querySelector('#qr-box svg').setAttribute('aria-label', url);
+        document.getElementById('qr-url').textContent = url;
     }
 
     document.getElementById('qr-btn').addEventListener('click', () => {
@@ -69,7 +69,7 @@ export function init(ctx) {
             openModal(qrModal);
         });
     });
-    document.getElementById('qrModalClose').addEventListener('click', closeModal);
+    document.getElementById('qr-modal-close').addEventListener('click', closeModal);
     closeOnBackdrop(qrModal);
 
     /* ---------- 磁盘剩余 ---------- */

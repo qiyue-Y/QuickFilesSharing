@@ -43,16 +43,21 @@ export const api = {
     downloadUrl: (username, filename) => url('/api/download', { username, filename }),
 };
 
-/* 复制给别人的地址：页面用 localhost 打开时换成服务器局域网 IP，否则接收端连不上 */
+/* 复制给别人的地址：页面用 localhost 打开时换成服务器局域网 IP，否则接收端连不上。
+ * IP 走 30s TTL 缓存——4 个调用点共用，DHCP 换地址低频，旧值最多糊半分钟 */
+const ADDR_TTL_MS = 30 * 1000;
+let addr = { ip: null, at: 0 };
+
 export async function shareOrigin() {
     if (!['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)) return location.origin;
-    try {
-        const d = await api.serverAddr();
-        if (d.ip) {
-            const u = new URL(location.origin);
-            u.hostname = d.ip;
-            return u.origin;
-        }
-    } catch (e) { /* 取不到 IP 就退回地址栏里的地址 */ }
-    return location.origin;
+    if (!addr.ip || Date.now() - addr.at > ADDR_TTL_MS) {
+        try {
+            const d = await api.serverAddr();
+            if (d.ip) addr = { ip: d.ip, at: Date.now() };
+        } catch (e) { console.warn('取局域网 IP 失败，退回地址栏 origin', e); }
+    }
+    if (!addr.ip) return location.origin;
+    const u = new URL(location.origin);
+    u.hostname = addr.ip;
+    return u.origin;
 }

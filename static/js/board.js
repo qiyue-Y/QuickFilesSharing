@@ -7,7 +7,7 @@ import { toast, copyText } from './ui.js';
 
 const listEl = document.getElementById('clip-list');
 const inputEl = document.getElementById('clip-input');
-const sendBtn = document.getElementById('clipSend');
+const sendBtn = document.getElementById('clip-send');
 
 const POLL_MS = 5000;
 const DEVICE_KEY = 'qfs_device';
@@ -183,7 +183,7 @@ export function init(ctx) {
 
     sendBtn.addEventListener('click', send);
     inputEl.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
-    document.getElementById('clipRefresh').addEventListener('click', () => { reload(); toast('已刷新', 'success'); });
+    document.getElementById('clip-refresh').addEventListener('click', () => { reload(); toast('已刷新', 'success'); });
 
     listEl.addEventListener('click', e => {
         const btn = e.target.closest && e.target.closest('.clip-actions .qbtn, .clip-more');
