@@ -1,0 +1,90 @@
+/* ============================================================
+   QFS · 睡莲池（暮色版）— 莫奈印象派色板
+   取自暮色画作：深靛池水、暮光金、睡莲玫粉、薰衣草倒影、奶油月光
+   ============================================================ */
+
+/* Space Grotesk 可变字体（自托管，离线可用；本机已装则优先本地） */
+@font-face {
+    font-family: "Space Grotesk";
+    font-style: normal;
+    font-weight: 300 700;
+    font-display: swap;
+    src: local("Space Grotesk"),
+         url("../assets/fonts/space-grotesk-latin-ext.woff2") format("woff2");
+    unicode-range: U+0100-02AF, U+0304, U+0308, U+0309, U+0323, U+0329,
+                   U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+                   U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: "Space Grotesk";
+    font-style: normal;
+    font-weight: 300 700;
+    font-display: swap;
+    src: local("Space Grotesk"),
+         url("../assets/fonts/space-grotesk-latin.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+                   U+02DA, U+02DC, U+0304, U+0308, U+0309, U+0323, U+0329,
+                   U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193,
+                   U+2196-2199, U+21A9, U+21B0, U+21B3, U+21B5, U+2212,
+                   U+2215, U+FEFF, U+FFFD;
+}
+
+/* Cormorant Garamond 可变字体（仅用于 QFS 古典艺术标题，自托管离线可用） */
+@font-face {
+    font-family: "Cormorant Garamond";
+    font-style: normal;
+    font-weight: 300 700;
+    font-display: swap;
+    src: local("Cormorant Garamond"), local("CormorantGaramond"),
+         url("../assets/fonts/cormorant-garamond-latin.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+                   U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122,
+                   U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+    /* ---- 语义层（head 契约映射所需） ---- */
+    --qfs-background: #0f232b;          /* 页面底色：暮色深池 */
+    --qfs-foreground: #efe6d4;          /* 奶油月光文字 */
+    --qfs-card: #15303b;                /* 卡片：深池青 */
+    --qfs-card-foreground: #efe6d4;
+    --qfs-popover: #1a3943;
+    --qfs-popover-foreground: #efe6d4;
+    --qfs-primary: #e7c184;             /* 暮光金：唯一主色 */
+    --qfs-primary-foreground: #21313a;
+    --qfs-muted: #28464f;
+    --qfs-muted-foreground: #a7b8b6;
+    --qfs-border: #33525d;
+    --qfs-input: #3c5a65;
+    --qfs-ring: #e7c184;
+    --qfs-destructive: #e08ba0;         /* 删除：暮色玫粉，仅语义状态 */
+
+    --qfs-radius-sm: 4px;               /* 画廊感小圆角 */
+    --qfs-radius-md: 8px;
+    --qfs-radius-lg: 16px;
+
+    /* ---- 印象派辅助色（画作同源，仅装饰/数据点缀） ---- */
+    --pond-deep: #0d2027;
+    --pond-mid: #2f5f6b;
+    --lily-sage: #86bb9d;
+    --water-rose: #e18aa1;
+    --water-lavender: #b5ade0;
+    --dusk-cream: #f3e6cd;
+    --gold-glint: #f2cf8f;
+    --ink-soft: rgba(239, 230, 212, .72);
+    --ink-faint: rgba(239, 230, 212, .48);
+    --paper-translucent: rgba(17, 38, 47, .72);
+    --paper-translucent-strong: rgba(22, 47, 56, .88);
+    --hairline: rgba(240, 228, 205, .14);
+
+    /* ---- 字体 ---- */
+    /* QFS 古典艺术大标题：加拉蒙风格 Cormorant Garamond */
+    --qfs-font-display: "Cormorant Garamond", "EB Garamond", Garamond, Georgia, "Times New Roman", serif;
+    /* 经典衬线：文件快传/画廊式中文标题（最初的样式） */
+    --qfs-font-classic: Georgia, "Times New Roman", "Songti SC", "STSong", "SimSun", serif;
+    /* 标题/正文：英文 Space Grotesk，中文霞鹜文楷 */
+    --qfs-font-serif: "Space Grotesk", "LXGW WenKai", "霞鹜文楷", Georgia, "Songti SC", "STSong", serif;
+    --qfs-font-sans: "Space Grotesk", "LXGW WenKai", "霞鹜文楷", "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    /* 等宽：Maple Mono CN 优先（含中文），Cascadia Code 兜底 */
+    --qfs-font-mono: "Maple Mono CN", "Maple Mono", "Cascadia Code", "Cascadia Mono", Consolas, "Courier New", monospace;
+}

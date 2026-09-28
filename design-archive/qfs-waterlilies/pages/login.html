@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QFS · 登录</title>
+    <style id="theme-vars">
+/* ============================================================
+   QFS · 睡莲池（暮色版）— 莫奈印象派色板
+   取自暮色画作：深靛池水、暮光金、睡莲玫粉、薰衣草倒影、奶油月光
+   ============================================================ */
+
+/* Space Grotesk 可变字体（自托管，离线可用；本机已装则优先本地） */
+@font-face {
+    font-family: "Space Grotesk";
+    font-style: normal;
+    font-weight: 300 700;
+    font-display: swap;
+    src: local("Space Grotesk"),
+         url("../assets/fonts/space-grotesk-latin-ext.woff2") format("woff2");
+    unicode-range: U+0100-02AF, U+0304, U+0308, U+0309, U+0323, U+0329,
+                   U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+                   U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: "Space Grotesk";
+    font-style: normal;
+    font-weight: 300 700;
+    font-display: swap;
+    src: local("Space Grotesk"),
+         url("../assets/fonts/space-grotesk-latin.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+                   U+02DA, U+02DC, U+0304, U+0308, U+0309, U+0323, U+0329,
+                   U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193,
+                   U+2196-2199, U+21A9, U+21B0, U+21B3, U+21B5, U+2212,
+                   U+2215, U+FEFF, U+FFFD;
+}
+
+/* Cormorant Garamond 可变字体（仅用于 QFS 古典艺术标题，自托管离线可用） */
+@font-face {
+    font-family: "Cormorant Garamond";
+    font-style: normal;
+    font-weight: 300 700;
+    font-display: swap;
+    src: local("Cormorant Garamond"), local("CormorantGaramond"),
+         url("../assets/fonts/cormorant-garamond-latin.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+                   U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122,
+                   U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+    /* ---- 语义层（head 契约映射所需） ---- */
+    --qfs-background: #0f232b;          /* 页面底色：暮色深池 */
+    --qfs-foreground: #efe6d4;          /* 奶油月光文字 */
+    --qfs-card: #15303b;                /* 卡片：深池青 */
+    --qfs-card-foreground: #efe6d4;
+    --qfs-popover: #1a3943;
+    --qfs-popover-foreground: #efe6d4;
+    --qfs-primary: #e7c184;             /* 暮光金：唯一主色 */
+    --qfs-primary-foreground: #21313a;
+    --qfs-muted: #28464f;
+    --qfs-muted-foreground: #a7b8b6;
+    --qfs-border: #33525d;
+    --qfs-input: #3c5a65;
+    --qfs-ring: #e7c184;
+    --qfs-destructive: #e08ba0;         /* 删除：暮色玫粉，仅语义状态 */
+
+    --qfs-radius-sm: 4px;               /* 画廊感小圆角 */
+    --qfs-radius-md: 8px;
+    --qfs-radius-lg: 16px;
+
+    /* ---- 印象派辅助色（画作同源，仅装饰/数据点缀） ---- */
+    --pond-deep: #0d2027;
+    --pond-mid: #2f5f6b;
+    --lily-sage: #86bb9d;
+    --water-rose: #e18aa1;
+    --water-lavender: #b5ade0;
+    --dusk-cream: #f3e6cd;
+    --gold-glint: #f2cf8f;
+    --ink-soft: rgba(239, 230, 212, .72);
+    --ink-faint: rgba(239, 230, 212, .48);
+    --paper-translucent: rgba(17, 38, 47, .72);
+    --paper-translucent-strong: rgba(22, 47, 56, .88);
+    --hairline: rgba(240, 228, 205, .14);
+
+    /* ---- 字体 ---- */
+    /* QFS 古典艺术大标题：加拉蒙风格 Cormorant Garamond */
+    --qfs-font-display: "Cormorant Garamond", "EB Garamond", Garamond, Georgia, "Times New Roman", serif;
+    /* 经典衬线：文件快传/画廊式中文标题（最初的样式） */
+    --qfs-font-classic: Georgia, "Times New Roman", "Songti SC", "STSong", "SimSun", serif;
+    /* 标题/正文：英文 Space Grotesk，中文霞鹜文楷 */
+    --qfs-font-serif: "Space Grotesk", "LXGW WenKai", "霞鹜文楷", Georgia, "Songti SC", "STSong", serif;
+    --qfs-font-sans: "Space Grotesk", "LXGW WenKai", "霞鹜文楷", "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    /* 等宽：Maple Mono CN 优先（含中文），Cascadia Code 兜底 */
+    --qfs-font-mono: "Maple Mono CN", "Maple Mono", "Cascadia Code", "Cascadia Mono", Consolas, "Courier New", monospace;
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--qfs-background);
+    --color-foreground: var(--qfs-foreground);
+    --color-card: var(--qfs-card);
+    --color-card-foreground: var(--qfs-card-foreground);
+    --color-popover: var(--qfs-popover);
+    --color-popover-foreground: var(--qfs-popover-foreground);
+    --color-primary: var(--qfs-primary);
+    --color-primary-foreground: var(--qfs-primary-foreground);
+    --color-muted: var(--qfs-muted);
+    --color-muted-foreground: var(--qfs-muted-foreground);
+    --color-destructive: var(--qfs-destructive);
+    --color-border: var(--qfs-border);
+    --color-input: var(--qfs-input);
+    --color-ring: var(--qfs-ring);
+    --radius-sm: var(--qfs-radius-sm);
+    --radius-md: var(--qfs-radius-md);
+    --radius-lg: var(--qfs-radius-lg);
+  }
+  @layer base {
+    body { background: var(--qfs-background); color: var(--qfs-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style id="semantic-token-fallback">
+      .bg-background { background-color: var(--qfs-background); }
+      .text-background { color: var(--qfs-background); }
+      .border-background { border-color: var(--qfs-background); }
+      .ring-background { --tw-ring-color: var(--qfs-background); }
+      .bg-foreground { background-color: var(--qfs-foreground); }
+      .text-foreground { color: var(--qfs-foreground); }
+      .border-foreground { border-color: var(--qfs-foreground); }
+      .ring-foreground { --tw-ring-color: var(--qfs-foreground); }
+      .bg-card { background-color: var(--qfs-card); }
+      .text-card { color: var(--qfs-card); }
+      .border-card { border-color: var(--qfs-card); }
+      .ring-card { --tw-ring-color: var(--qfs-card); }
+      .bg-card-foreground { background-color: var(--qfs-card-foreground); }
+      .text-card-foreground { color: var(--qfs-card-foreground); }
+      .border-card-foreground { border-color: var(--qfs-card-foreground); }
+      .ring-card-foreground { --tw-ring-color: var(--qfs-card-foreground); }
+      .bg-popover { background-color: var(--qfs-popover); }
+      .text-popover { color: var(--qfs-popover); }
+      .border-popover { border-color: var(--qfs-popover); }
+      .ring-popover { --tw-ring-color: var(--qfs-popover); }
+      .bg-popover-foreground { background-color: var(--qfs-popover-foreground); }
+      .text-popover-foreground { color: var(--qfs-popover-foreground); }
+      .border-popover-foreground { border-color: var(--qfs-popover-foreground); }
+      .ring-popover-foreground { --tw-ring-color: var(--qfs-popover-foreground); }
+      .bg-primary { background-color: var(--qfs-primary); }
+      .text-primary { color: var(--qfs-primary); }
+      .border-primary { border-color: var(--qfs-primary); }
+      .ring-primary { --tw-ring-color: var(--qfs-primary); }
+      .bg-primary-foreground { background-color: var(--qfs-primary-foreground); }
+      .text-primary-foreground { color: var(--qfs-primary-foreground); }
+      .border-primary-foreground { border-color: var(--qfs-primary-foreground); }
+      .ring-primary-foreground { --tw-ring-color: var(--qfs-primary-foreground); }
+      .bg-muted { background-color: var(--qfs-muted); }
+      .text-muted { color: var(--qfs-muted); }
+      .border-muted { border-color: var(--qfs-muted); }
+      .ring-muted { --tw-ring-color: var(--qfs-muted); }
+      .bg-muted-foreground { background-color: var(--qfs-muted-foreground); }
+      .text-muted-foreground { color: var(--qfs-muted-foreground); }
+      .border-muted-foreground { border-color: var(--qfs-muted-foreground); }
+      .ring-muted-foreground { --tw-ring-color: var(--qfs-muted-foreground); }
+      .bg-destructive { background-color: var(--qfs-destructive); }
+      .text-destructive { color: var(--qfs-destructive); }
+      .border-destructive { border-color: var(--qfs-destructive); }
+      .ring-destructive { --tw-ring-color: var(--qfs-destructive); }
+      .bg-border { background-color: var(--qfs-border); }
+      .text-border { color: var(--qfs-border); }
+      .border-border { border-color: var(--qfs-border); }
+      .ring-border { --tw-ring-color: var(--qfs-border); }
+      .bg-input { background-color: var(--qfs-input); }
+      .text-input { color: var(--qfs-input); }
+      .border-input { border-color: var(--qfs-input); }
+      .ring-input { --tw-ring-color: var(--qfs-input); }
+      .bg-ring { background-color: var(--qfs-ring); }
+      .text-ring { color: var(--qfs-ring); }
+      .border-ring { border-color: var(--qfs-ring); }
+      .ring-ring { --tw-ring-color: var(--qfs-ring); }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+</head>
+<body class="h-screen overflow-hidden font-sans antialiased">
+    <main class="login-stage" id="login-stage" data-viewport-mode="app-shell">
+        <!-- 背景层：整屏固定池面油画 + 三层蒙版 -->
+        <div class="backdrop" aria-hidden="true">
+            <img src="../assets/monet-pond.jpg" alt="">
+            <div class="veil veil-flat"></div>
+            <div class="veil vignette"></div>
+            <div class="veil side-light"></div>
+        </div>
+
+        <!-- 内滚区域：中央两列 + 脚注；内容超高时仅此区域滚动，背景层与蒙版保持固定 -->
+        <div class="stage-scroll overflow-y-auto" data-scroll-region="primary">
+        <!-- 中央两列：拱框展品 + 宣纸登录卡 -->
+        <section class="portal" aria-label="登录">
+            <figure class="arch-exhibit" id="arch-exhibit">
+                <div class="arch">
+                    <div class="arch-inner">
+                        <img src="../assets/monet-lily-bloom.jpg" alt="暮色池面上一株盛开的粉色睡莲，莫奈印象派风格油画">
+                    </div>
+                </div>
+                <figcaption class="plaque">
+                    <span class="plaque-latin">Water Lilies</span>
+                    <span class="plaque-cn">吉维尼暮色 · 局域网快传</span>
+                </figcaption>
+            </figure>
+
+            <div class="login-card" id="login-card">
+                <p class="eyebrow">QUICK<span class="dot">&nbsp;·&nbsp;</span>FILE<span class="dot">&nbsp;·&nbsp;</span>SHARING</p>
+                <h1 class="qtitle" aria-label="QFS">
+                    <span class="tl">Q</span><span class="tl">F</span><span class="tl">S</span>
+                </h1>
+                <p class="welcome">以用户名进入你的共享池</p>
+
+                <form id="login-form" novalidate>
+                    <div class="field" id="login-field">
+                        <label for="login-username">用户名</label>
+                        <div class="input-wrap" id="login-input-wrap">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <circle cx="12" cy="8.2" r="3.6"></circle>
+                                <path d="M5.2 19.6c.9-3.5 3.5-5.1 6.8-5.1s5.9 1.6 6.8 5.1"></path>
+                            </svg>
+                            <input id="login-username" name="username" type="text"
+                                   placeholder="输入用户名，如 用户"
+                                   autocomplete="off" spellcheck="false" maxlength="32">
+                        </div>
+                        <p class="err" id="login-error" role="alert"></p>
+                    </div>
+
+                    <button type="submit" class="enter-btn" id="login-enter" data-dom-id="login-enter">
+                        <span class="btn-label" id="btn-label">进入</span>
+                        <span class="btn-spinner" aria-hidden="true"></span>
+                        <svg class="btn-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M5 12h13.5"></path>
+                            <path d="m13 6.5 5.5 5.5L13 17.5"></path>
+                        </svg>
+                    </button>
+                </form>
+
+                <p class="card-note">可信局域网 · 无需密码</p>
+            </div>
+        </section>
+
+        <footer class="site-foot">QFS 文件快传 · 数据仅在本机网络内传输</footer>
+        </div>
+
+        <!-- 成功转场：从拱框中心扩散的奶油→深池单色揭示层 -->
+        <div class="wash" id="transition-wash" aria-hidden="true"></div>
+    </main>
+
+    <style>
+      /* ============================================================
+         QFS · 登录（暮色画廊入口）— 页面私有静态样式
+         不依赖 Tailwind 运行时；色板/字体变量由 head 契约注入
+         ============================================================ */
+      *, *::before, *::after { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      html, body {
+        min-height: 100dvh;
+        overflow-x: hidden;
+        background: var(--pond-deep);
+      }
+      body {
+        color: var(--qfs-foreground);
+        font-family: var(--qfs-font-sans);
+        -webkit-font-smoothing: antialiased;
+      }
+      h1, p, figure { margin: 0; }
+      button, input { font: inherit; }
+
+      .login-stage {
+        position: relative;
+        height: 100dvh;
+        isolation: isolate;
+        overflow: hidden;
+      }
+
+      /* app-shell 主内滚区域：占满舞台并承接原舞台的 flex 列布局；
+         常规高度下 .portal 的 flex:1 让两列居中、脚注距底 24px（与改造前一致），
+         小屏内容超高时仅此区域内部滚动，.backdrop 与 .wash 仍 fixed 不跟随 */
+      .stage-scroll {
+        position: relative;
+        z-index: 1;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      /* ---------- 背景层与三层蒙版 ---------- */
+      .backdrop { position: fixed; inset: 0; z-index: 0; overflow: hidden; }
+      .backdrop > img {
+        position: absolute; inset: 0;
+        width: 100%; height: 100%;
+        object-fit: cover;
+        transform-origin: 50% 45%;
+        animation: bgIn 1200ms cubic-bezier(.3,0,0,1) backwards,
+                   pondDrift 72s ease-in-out 800ms infinite alternate;
+      }
+      @keyframes bgIn { from { opacity: 0; } to { opacity: 1; } }
+      /* Ken Burns：缩放与位移合计 ≤6%，72s 极慢漂移 */
+      @keyframes pondDrift {
+        from { transform: scale(1.06) translate(-1.4%, -1%); }
+        to   { transform: scale(1.02) translate( 1.4%,  1%); }
+      }
+      .veil { position: absolute; inset: 0; pointer-events: none; }
+      .veil-flat { background: rgba(13, 32, 39, .66); }
+      .vignette {
+        background: radial-gradient(92% 84% at 50% 42%,
+                    rgba(13, 32, 39, 0) 38%,
+                    rgba(7, 18, 23, .62) 100%);
+      }
+      .side-light {
+        background: linear-gradient(100deg,
+                    rgba(7, 18, 23, .42) 0%,
+                    rgba(13, 32, 39, 0) 42%,
+                    rgba(13, 32, 39, 0) 66%,
+                    rgba(7, 18, 23, .22) 100%);
+      }
+
+      /* ---------- 中央两列 ---------- */
+      .portal {
+        position: relative; z-index: 1;
+        flex: 1;
+        width: 100%;
+        max-width: 1080px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 64px;
+        padding: 48px 40px 32px;
+      }
+
+      /* ---------- 左：拱框展品 ---------- */
+      .arch-exhibit {
+        width: 320px;
+        flex: none;
+        animation: riseIn 500ms cubic-bezier(.3,0,0,1) 180ms backwards;
+      }
+      .arch {
+        position: relative;
+        height: 424px;
+        padding: 7px;
+        border: 1px solid rgba(242, 207, 143, .55);
+        border-radius: 50% 50% 6px 6px / 38% 38% 6px 6px;
+        background: rgba(13, 32, 39, .5);
+        animation: archBreathe 5.6s ease-in-out 1.4s infinite;
+        transition: transform 450ms cubic-bezier(.32,.72,0,1),
+                    filter 450ms cubic-bezier(.32,.72,0,1),
+                    border-color 450ms ease,
+                    box-shadow 450ms ease;
+      }
+      @keyframes archBreathe {
+        0%, 100% { box-shadow: 0 22px 54px rgba(4, 12, 16, .5),
+                              0 0 22px -8px rgba(242, 207, 143, 0); }
+        50%      { box-shadow: 0 24px 60px rgba(4, 12, 16, .55),
+                              0 0 30px -8px rgba(242, 207, 143, .22); }
+      }
+      .arch-inner {
+        position: relative;
+        width: 100%; height: 100%;
+        overflow: hidden;
+        border-radius: 50% 50% 4px 4px / 38% 38% 4px 4px;
+      }
+      /* 放大 + 顶部锚点：把右下角水印裁出拱框，主体睡莲仍居穹顶下 */
+      .arch-inner img {
+        display: block;
+        width: 100%; height: 100%;
+        object-fit: cover;
+        object-position: center 30%;
+        transform: scale(1.08);
+        transform-origin: center top;
+      }
+      .arch-inner::after {
+        content: "";
+        position: absolute; inset: 0;
+        background: linear-gradient(180deg,
+                    rgba(13, 32, 39, 0) 58%,
+                    rgba(13, 32, 39, .28) 84%,
+                    rgba(10, 24, 30, .48) 100%);
+      }
+      .arch-exhibit.awake .arch {
+        animation: none;
+        transform: scale(1.03);
+        filter: brightness(1.12);
+        border-color: rgba(242, 207, 143, .92);
+        box-shadow: 0 26px 64px rgba(4, 12, 16, .55),
+                    0 0 40px -6px rgba(242, 207, 143, .4);
+      }
+
+      .plaque {
+        margin-top: 15px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+      }
+      .plaque-latin {
+        font-family: var(--qfs-font-display);
+        font-style: italic;
+        font-size: 17px;
+        color: var(--dusk-cream);
+        letter-spacing: .02em;
+      }
+      .plaque-cn {
+        font-size: 11px;
+        letter-spacing: .12em;
+        padding-left: .12em;
+        color: var(--ink-faint);
+      }
+
+      /* ---------- 右：宣纸登录卡 ---------- */
+      .login-card {
+        width: 400px;
+        flex: none;
+        padding: 44px 44px 34px;
+        border-radius: 16px;
+        background: var(--paper-translucent);
+        -webkit-backdrop-filter: blur(16px) saturate(1.06);
+        backdrop-filter: blur(16px) saturate(1.06);
+        border: 1px solid var(--hairline);
+        box-shadow: 0 22px 54px rgba(4, 11, 15, .46),
+                    inset 0 1px 0 rgba(243, 230, 205, .07);
+        animation: riseIn 420ms cubic-bezier(.3,0,0,1) 300ms backwards;
+        transition: opacity 450ms cubic-bezier(.32,.72,0,1),
+                    transform 450ms cubic-bezier(.32,.72,0,1);
+      }
+      .login-card.is-leaving {
+        opacity: 0;
+        transform: translateY(-10px) scale(1.04);
+      }
+      .login-card.shake { animation: shake 300ms cubic-bezier(.3,0,0,1); }
+
+      .eyebrow {
+        font-family: var(--qfs-font-display);
+        font-size: 12px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: .3em;
+        padding-left: .3em;
+        color: var(--ink-faint);
+        animation: softIn 420ms cubic-bezier(.3,0,0,1) 420ms backwards;
+      }
+      .eyebrow .dot { color: rgba(242, 207, 143, .72); }
+
+      .qtitle {
+        display: inline-flex;
+        margin: 8px 0 0;
+        font-family: var(--qfs-font-display);
+        font-size: 56px;
+        line-height: 1.06;
+        font-weight: 600;
+        letter-spacing: .08em;
+      }
+      .qtitle .tl {
+        display: inline-block;
+        padding: 0 .04em;
+        background: linear-gradient(102deg,
+                    var(--dusk-cream) 26%, color-mix(in srgb, var(--dusk-cream) 88%, white) 44%,
+                    var(--gold-glint) 50%, var(--dusk-cream) 66%);
+        background-size: 260% 100%;
+        -webkit-background-clip: text; background-clip: text;
+        color: transparent; -webkit-text-fill-color: transparent;
+        animation: cardLetterIn 500ms cubic-bezier(.3,0,0,1) backwards,
+                   titleSheen 8s ease-in-out infinite;
+      }
+      .qtitle .tl:nth-child(1) { animation-delay: 460ms, 1.3s; padding-left: .12em; }
+      .qtitle .tl:nth-child(2) { animation-delay: 520ms, 1.42s; }
+      .qtitle .tl:nth-child(3) { animation-delay: 580ms, 1.54s; padding-right: .08em; }
+      @supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+        .qtitle .tl { color: var(--dusk-cream); -webkit-text-fill-color: var(--dusk-cream); }
+      }
+      @keyframes cardLetterIn {
+        from { opacity: 0; transform: translateY(14px); }
+        to   { opacity: 1; transform: none; }
+      }
+      @keyframes titleSheen {
+        0%   { background-position: 120% 0; }
+        68%  { background-position: 120% 0; }
+        100% { background-position: -40% 0; }
+      }
+
+      .welcome {
+        margin-top: 14px;
+        font-size: 15px;
+        color: var(--ink-soft);
+        animation: softIn 420ms cubic-bezier(.3,0,0,1) 560ms backwards;
+      }
+
+      form {
+        margin-top: 26px;
+        animation: softIn 420ms cubic-bezier(.3,0,0,1) 620ms backwards;
+      }
+      .field label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 13px;
+        letter-spacing: .06em;
+        color: rgba(239, 230, 212, .86);
+      }
+      .input-wrap {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 48px;
+        padding: 0 14px;
+        border-radius: 8px;
+        border: 1px solid var(--qfs-border);
+        background: rgba(9, 23, 30, .62);
+        transition: box-shadow 140ms ease, border-color 140ms ease;
+      }
+      .input-wrap svg {
+        width: 18px; height: 18px;
+        flex: none;
+        color: var(--ink-faint);
+      }
+      .input-wrap input {
+        flex: 1;
+        min-width: 0;
+        height: 100%;
+        padding: 0;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--qfs-foreground);
+        font-size: 15px;
+      }
+      .input-wrap input::placeholder { color: var(--ink-faint); }
+      .input-wrap:focus-within {
+        border-color: transparent;
+        box-shadow: 0 0 0 2px var(--qfs-ring);
+      }
+      .field.invalid .input-wrap {
+        border-color: rgba(224, 139, 160, .72);
+        box-shadow: 0 0 0 2px rgba(224, 139, 160, .9);
+      }
+      .field.invalid.shake .input-wrap { animation: shake 300ms cubic-bezier(.3,0,0,1); }
+      .err {
+        margin-top: 7px;
+        min-height: 18px;
+        font-size: 12px;
+        line-height: 18px;
+        color: var(--qfs-destructive);
+        visibility: hidden;
+      }
+      .field.invalid .err { visibility: visible; }
+
+      .enter-btn {
+        position: relative;
+        margin-top: 20px;
+        width: 100%;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding-left: .12em;
+        border: 0;
+        border-radius: 8px;
+        background: var(--qfs-primary);
+        color: var(--qfs-primary-foreground);
+        font-size: 15.5px;
+        font-weight: 600;
+        letter-spacing: .12em;
+        cursor: pointer;
+        transition: transform 140ms cubic-bezier(.3,0,0,1),
+                    filter 140ms ease,
+                    box-shadow 140ms ease;
+      }
+      .enter-btn:hover { filter: brightness(1.05); transform: translateY(-1px); }
+      .enter-btn:hover .btn-arrow { transform: translateX(2px); }
+      .enter-btn:active { transform: scale(.985); filter: brightness(.98); }
+      .enter-btn:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 2px var(--qfs-background), 0 0 0 4px var(--qfs-ring);
+      }
+      .enter-btn:disabled { cursor: default; }
+      .btn-label { transition: opacity 140ms ease; }
+      .btn-arrow {
+        width: 18px; height: 18px;
+        transition: transform 280ms cubic-bezier(.3,0,0,1), opacity 140ms ease;
+      }
+      .btn-spinner {
+        position: absolute;
+        width: 13px; height: 13px;
+        border-radius: 50%;
+        border: 2px solid rgba(33, 49, 58, .28);
+        border-top-color: var(--qfs-primary-foreground);
+        opacity: 0;
+      }
+      .enter-btn.is-loading { transform: none; filter: none; }
+      .enter-btn.is-loading .btn-label,
+      .enter-btn.is-loading .btn-arrow { opacity: 0; }
+      .enter-btn.is-loading .btn-spinner {
+        opacity: 1;
+        animation: spin 700ms linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      .card-note {
+        margin-top: 16px;
+        text-align: center;
+        font-size: 12px;
+        letter-spacing: .08em;
+        color: var(--ink-faint);
+        animation: softIn 420ms cubic-bezier(.3,0,0,1) 680ms backwards;
+      }
+
+      /* ---------- 底脚注 ---------- */
+      .site-foot {
+        position: relative; z-index: 1;
+        padding: 0 24px 24px;
+        text-align: center;
+        font-size: 12px;
+        letter-spacing: .08em;
+        color: var(--ink-faint);
+      }
+
+      /* ---------- 动效关键帧 ---------- */
+      @keyframes riseIn {
+        from { opacity: 0; transform: translateY(24px); }
+        to   { opacity: 1; transform: none; }
+      }
+      @keyframes softIn {
+        from { opacity: 0; transform: translateY(12px); }
+        to   { opacity: 1; transform: none; }
+      }
+      @keyframes shake {
+        15% { transform: translateX(-6px); }
+        32% { transform: translateX(5px); }
+        50% { transform: translateX(-4px); }
+        70% { transform: translateX(3px); }
+        86% { transform: translateX(-1px); }
+      }
+
+      /* ---------- 成功转场揭示层 ---------- */
+      .wash {
+        position: fixed; inset: 0; z-index: 5;
+        pointer-events: none;
+        clip-path: circle(0% at 50% 42%);
+        background: radial-gradient(110% 110% at var(--rx, 50%) var(--ry, 42%),
+                    color-mix(in srgb, var(--dusk-cream) 92%, white) 0%,
+                    color-mix(in srgb, var(--gold-glint) 70%, var(--dusk-cream)) 24%,
+                    color-mix(in srgb, var(--gold-glint) 55%, var(--pond-mid)) 42%,
+                    color-mix(in srgb, var(--pond-mid) 70%, var(--dusk-cream)) 60%,
+                    var(--pond-mid) 78%, var(--pond-deep) 100%);
+      }
+      .wash.revealing {
+        animation: portalReveal 700ms cubic-bezier(.32,.72,0,1) forwards;
+      }
+      @keyframes portalReveal {
+        from { clip-path: circle(0% at var(--rx, 50%) var(--ry, 42%)); }
+        to   { clip-path: circle(150% at var(--rx, 50%) var(--ry, 42%)); }
+      }
+
+      /* reduce-motion 降级：150ms 淡入后跳转（由脚本调度） */
+      .login-stage.rm-out .backdrop,
+      .login-stage.rm-out .portal,
+      .login-stage.rm-out .site-foot {
+        opacity: 0;
+        transition: opacity 150ms ease;
+      }
+
+      /* ---------- 窄屏：单列，拱窗缩小置顶 ---------- */
+      @media (max-width: 899px) {
+        .portal {
+          flex-direction: column;
+          gap: 24px;
+          padding: 36px 20px 24px;
+        }
+        .arch-exhibit { width: 168px; }
+        .arch { height: 222px; padding: 6px; }
+        .plaque { margin-top: 11px; }
+        .plaque-latin { font-size: 15px; }
+        .plaque-cn { font-size: 10.5px; }
+        .login-card {
+          width: min(92vw, 400px);
+          padding: 32px 28px 26px;
+        }
+        .qtitle { font-size: 46px; }
+      }
+      @media (max-width: 560px) {
+        .portal { gap: 20px; padding: 28px 16px 20px; }
+        .arch-exhibit { width: 150px; }
+        .arch { height: 198px; }
+        .login-card { padding: 28px 22px 22px; }
+        .qtitle { font-size: 42px; }
+        .eyebrow { font-size: 11px; }
+        .site-foot { font-size: 11px; padding-bottom: 20px; }
+      }
+
+      /* ---------- 降低动态偏好 ---------- */
+      @media (prefers-reduced-motion: reduce) {
+        .backdrop > img { animation: none; }
+        .arch { animation: none; }
+        .arch-exhibit,
+        .login-card,
+        .eyebrow,
+        .welcome,
+        form,
+        .card-note,
+        .qtitle .tl {
+          animation: none;
+          opacity: 1;
+          transform: none;
+        }
+        .wash.revealing { animation: none; clip-path: none; }
+      }
+    </style>
+
+    <script>
+      (function () {
+        "use strict";
+        var form = document.getElementById("login-form");
+        var input = document.getElementById("login-username");
+        var btn = document.getElementById("login-enter");
+        var btnLabel = document.getElementById("btn-label");
+        var card = document.getElementById("login-card");
+        var field = document.getElementById("login-field");
+        var err = document.getElementById("login-error");
+        var archExhibit = document.getElementById("arch-exhibit");
+        var arch = archExhibit.querySelector(".arch");
+        var wash = document.getElementById("transition-wash");
+        var stage = document.getElementById("login-stage");
+
+        var reduceMotion = false;
+        try {
+          reduceMotion = window.matchMedia &&
+            window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        } catch (e) { reduceMotion = false; }
+
+        var busy = false;
+
+        function clearError() {
+          field.classList.remove("invalid");
+          err.textContent = "";
+        }
+        function showError() {
+          field.classList.add("invalid", "shake");
+          card.classList.remove("shake");
+          // 强制重启动画
+          void card.offsetWidth;
+          card.classList.add("shake");
+          err.textContent = "请输入用户名";
+          try { input.focus(); } catch (e) {}
+          window.setTimeout(function () {
+            field.classList.remove("shake");
+            card.classList.remove("shake");
+          }, 320);
+        }
+
+        input.addEventListener("input", function () {
+          if (field.classList.contains("invalid")) clearError();
+        });
+
+        function redirect(name) {
+          try {
+            window.location.href = "index.html?username=" + encodeURIComponent(name);
+          } catch (e) { /* 宿主拦截时静默 */ }
+        }
+
+        form.addEventListener("submit", function (e) {
+          e.preventDefault();
+          if (busy) return;
+          var name = input.value.trim();
+          if (!name) { showError(); return; }
+          busy = true;
+
+          try { sessionStorage.setItem("qfs-username", name); } catch (err) { /* 隐私模式等场景忽略 */ }
+
+          if (reduceMotion) {
+            stage.classList.add("rm-out");
+            window.setTimeout(function () { redirect(name); }, 180);
+            return;
+          }
+
+          // 1) 按钮加载态（约 500ms）
+          btn.classList.add("is-loading");
+          btn.disabled = true;
+          btnLabel.textContent = "进入";
+
+          // 2) 登录卡退出 + 拱框苏醒（520ms 起，450ms）
+          window.setTimeout(function () {
+            card.classList.add("is-leaving");
+            archExhibit.classList.add("awake");
+          }, 520);
+
+          // 3) 从拱框中心圆形揭示（950ms 起，700ms）
+          window.setTimeout(function () {
+            var r = arch.getBoundingClientRect();
+            wash.style.setProperty("--rx", (r.left + r.width / 2) + "px");
+            wash.style.setProperty("--ry", (r.top + r.height / 2) + "px");
+            wash.classList.add("revealing");
+          }, 950);
+
+          // 4) 总时长约 1.68s 后跳转
+          window.setTimeout(function () { redirect(name); }, 1680);
+        });
+      })();
+    </script>
+</body>
+</html>

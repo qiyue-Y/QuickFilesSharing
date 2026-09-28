@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>消息快传 · 设计稿 Demo2</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%23111111'/><path d='M16.5 15.5v2a1.5 1.5 0 0 1-1.5 1.5H9a1.5 1.5 0 0 1-1.5-1.5v-2M12 15V5m0 0l-4 4m4-4l4 4' stroke='%23fff' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<!--
+  设计演示页（纯静态，不请求后端，可直接 file:// 打开）。
+  设计方向：暖白纸面 + 编辑排版（衬线大标题），色彩只用于状态，全部数据为演示模拟。
+  与 demo/ 的深色方向并行，供对比选型。
+-->
+<style>
+    :root {
+        --bg: #FBFBFA;
+        --surface: #FFFFFF;
+        --surface-2: #F7F6F3;
+        --inset: #F3F2EF;
+        --ink: #111111;
+        --body: #2F3437;
+        --muted: #787774;
+        --faint: #A9A8A4;
+        --line: #EAEAEA;
+        --line-soft: rgba(0,0,0,.06);
+        --red-bg: #FDEBEC;   --red-tx: #9F2F2D;
+        --blue-bg: #E1F3FE;  --blue-tx: #1F6C9F;
+        --green-bg: #EDF3EC; --green-tx: #346538;
+        --yellow-bg: #FBF3DB; --yellow-tx: #956400;
+        --radius: 12px;
+        --radius-s: 6px;
+        --sans: "SF Pro Display", "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+        --serif: Georgia, "Times New Roman", "Songti SC", "SimSun", serif;
+        --mono: "SF Mono", "JetBrains Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+    }
+    * { box-sizing: border-box; }
+    html { color-scheme: light; }
+    body {
+        margin: 0;
+        font-family: var(--sans);
+        font-size: 14px;
+        line-height: 1.6;
+        color: var(--body);
+        background: var(--bg);
+        -webkit-font-smoothing: antialiased;
+        min-height: 100vh;
+    }
+    ::selection { background: #FBF3DB; color: #956400; }
+    [hidden] { display: none !important; }
+
+    /* 背景氛围：极低透明度的暖色光斑，缓慢漂移 */
+    .ambient {
+        position: fixed; inset: 0; pointer-events: none; z-index: 0;
+        background:
+            radial-gradient(600px 420px at 12% -5%, rgba(149,100,0,.035), transparent 70%),
+            radial-gradient(720px 520px at 95% 10%, rgba(31,108,159,.03), transparent 70%);
+        animation: drift 26s ease-in-out infinite alternate;
+    }
+    @keyframes drift { from { transform: translate3d(0,0,0); } to { transform: translate3d(-24px, 18px, 0); } }
+
+    .wrap { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 0 28px 72px; }
+
+    /* ---------- 顶栏 ---------- */
+    .topbar {
+        display: flex; align-items: center; justify-content: space-between; gap: 16px;
+        padding: 18px 0 16px;
+        border-bottom: 1px solid var(--line);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark {
+        width: 34px; height: 34px; border-radius: 9px; background: var(--ink); color: #fff;
+        display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .brand-name { font-family: var(--serif); font-size: 19px; letter-spacing: -0.02em; color: var(--ink); line-height: 1.2; }
+    .brand-sub { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; color: var(--faint); text-transform: uppercase; }
+    .top-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .host {
+        font-family: var(--mono); font-size: 12px; color: var(--muted);
+        padding: 6px 12px; border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--surface);
+    }
+
+    /* ---------- 登录条 ---------- */
+    .login {
+        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        margin-top: 18px; padding: 12px 16px;
+        background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    }
+    .login-label { font-size: 13px; color: var(--muted); }
+    .field {
+        height: 36px; padding: 0 12px; width: 220px;
+        border: 1px solid var(--line); border-radius: var(--radius-s);
+        background: var(--surface); color: var(--ink); font-size: 13.5px; outline: none;
+        transition: border-color .15s, box-shadow .15s;
+    }
+    .field::placeholder { color: var(--faint); }
+    .field:focus { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(0,0,0,.05); }
+    .check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); user-select: none; }
+    .check input { width: 15px; height: 15px; accent-color: var(--ink); cursor: pointer; }
+    .login .sep { width: 1px; height: 20px; background: var(--line); }
+    .login .spacer { flex: 1; }
+
+    /* ---------- 按钮 ---------- */
+    .btn {
+        display: inline-flex; align-items: center; gap: 6px;
+        height: 36px; padding: 0 16px;
+        border: 1px solid transparent; border-radius: 5px;
+        font-size: 13px; font-weight: 600; font-family: var(--sans);
+        cursor: pointer; user-select: none;
+        transition: background .15s, color .15s, border-color .15s, transform .05s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-dark { background: var(--ink); color: #fff; }
+    .btn-dark:hover { background: #333333; }
+    .btn-ghost { background: var(--surface); color: var(--ink); border-color: var(--line); }
+    .btn-ghost:hover { background: var(--surface-2); }
+    .btn-text { background: transparent; color: var(--muted); padding: 0 10px; }
+    .btn-text:hover { color: var(--ink); background: var(--surface-2); }
+    .btn-danger { background: var(--red-bg); color: var(--red-tx); }
+    .btn-danger:hover { background: #F9DEDF; }
+    .btn-sm { height: 30px; padding: 0 12px; font-size: 12.5px; }
+    .btn svg { flex-shrink: 0; }
+
+    /* ---------- 页首 ---------- */
+    .page-head { padding: 52px 0 36px; }
+    .page-kicker {
+        font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+        color: var(--faint); margin-bottom: 14px;
+    }
+    h1 {
+        font-family: var(--serif); font-weight: 400;
+        font-size: clamp(34px, 5vw, 46px); letter-spacing: -0.03em; line-height: 1.1;
+        color: var(--ink); margin: 0 0 14px;
+    }
+    .lede { max-width: 560px; font-size: 15px; color: var(--muted); margin: 0; }
+    .lede b { color: var(--ink); font-weight: 600; }
+    .user-chip {
+        display: inline-flex; align-items: center; gap: 7px;
+        margin-left: 12px; padding: 3px 12px 3px 8px; vertical-align: 6px;
+        background: var(--green-bg); color: var(--green-tx);
+        border-radius: 9999px; font-size: 12px; font-weight: 600; letter-spacing: .02em;
+        font-family: var(--sans);
+    }
+    .user-chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #346538; opacity: .75; }
+
+    /* ---------- 主栅格 ---------- */
+    .grid { display: grid; grid-template-columns: 7fr 5fr; gap: 22px; align-items: start; }
+    .grid > *, .col > * { min-width: 0; }
+    .col { display: grid; gap: 22px; }
+    .card {
+        background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+        padding: 26px 28px;
+    }
+    .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+    .card-title { display: flex; align-items: center; gap: 9px; font-family: var(--serif); font-size: 20px; letter-spacing: -0.02em; color: var(--ink); font-weight: 400; }
+    .card-title svg { color: var(--muted); }
+    .card-meta { font-family: var(--mono); font-size: 11.5px; color: var(--faint); }
+
+    /* ---------- 剪切板 ---------- */
+    .clip-area {
+        width: 100%; height: 340px; padding: 14px 16px; resize: vertical;
+        border: 1px solid var(--line); border-radius: 8px; outline: none;
+        font-family: var(--mono); font-size: 13px; line-height: 1.7; color: var(--body);
+        background: var(--surface);
+        transition: border-color .15s, box-shadow .15s;
+    }
+    .clip-area:focus { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(0,0,0,.05); }
+    .clip-toolbar { display: flex; align-items: center; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+    .clip-toolbar .spacer { flex: 1; }
+    .status-line {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-size: 12.5px; color: var(--green-tx); background: var(--green-bg);
+        padding: 5px 12px; border-radius: 9999px; font-weight: 600;
+    }
+    .status-line svg { flex-shrink: 0; }
+    .clip-foot { margin-top: 14px; font-family: var(--mono); font-size: 11px; color: var(--faint); }
+
+    /* 最近操作 */
+    .act-row { display: flex; align-items: baseline; gap: 12px; padding: 9px 2px; border-bottom: 1px solid var(--line); }
+    .act-row:last-child { border-bottom: none; }
+    .act-time { font-family: var(--mono); font-size: 11px; color: var(--faint); white-space: nowrap; width: 76px; flex-shrink: 0; }
+    .act-text { flex: 1; min-width: 0; font-size: 13px; color: var(--body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .act-text b { color: var(--ink); font-weight: 600; }
+    .act-size { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+    /* ---------- 文件区 ---------- */
+    .dropzone {
+        border: 1.5px dashed #DCDBD7; border-radius: 10px;
+        padding: 22px 16px; text-align: center; cursor: pointer;
+        transition: border-color .15s, background .15s;
+        background: transparent;
+    }
+    .dropzone:hover, .dropzone.dragover { border-color: var(--ink); background: var(--surface-2); }
+    .dropzone .dz-icon { color: var(--muted); margin-bottom: 8px; }
+    .dropzone .dz-main { font-size: 13.5px; color: var(--ink); font-weight: 600; }
+    .dropzone .dz-main u { text-underline-offset: 3px; }
+    .dropzone .dz-hint { font-family: var(--mono); font-size: 11px; color: var(--faint); margin-top: 5px; letter-spacing: .02em; }
+    .dropzone input[type="file"] { display: none; }
+
+    /* 传输卡（演示中的活跃上传） */
+    .transfer {
+        margin-top: 14px; padding: 16px 18px;
+        background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px;
+    }
+    .transfer-head { display: flex; align-items: center; gap: 10px; }
+    .transfer-name { font-weight: 600; font-size: 13.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+    .transfer-size { font-family: var(--mono); font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+    .tag {
+        display: inline-flex; align-items: center; padding: 2px 9px;
+        border-radius: 9999px; font-size: 10px; font-weight: 600;
+        letter-spacing: .06em; text-transform: uppercase; white-space: nowrap;
+    }
+    .tag-blue { background: var(--blue-bg); color: var(--blue-tx); }
+    .tag-yellow { background: var(--yellow-bg); color: var(--yellow-tx); }
+    .tag-green { background: var(--green-bg); color: var(--green-tx); }
+    .tag-red { background: var(--red-bg); color: var(--red-tx); }
+    .bar { margin-top: 12px; height: 5px; background: var(--inset); border-radius: 9999px; overflow: hidden; }
+    .bar-fill { height: 100%; width: 0%; background: var(--ink); border-radius: 9999px; transition: width .4s linear; }
+    .bar-fill.done { background: var(--green-tx); }
+    .chunks { margin-top: 12px; display: grid; grid-template-columns: repeat(20, 1fr); gap: 3px; }
+    .chunk { aspect-ratio: 1; border-radius: 2px; background: #E5E4E0; }
+    .chunk.done { background: #111111; }
+    .chunk.flying { background: var(--blue-bg); box-shadow: inset 0 0 0 1px rgba(31,108,159,.35); }
+    .transfer-stats {
+        margin-top: 12px; display: flex; flex-wrap: wrap; gap: 4px 14px;
+        font-family: var(--mono); font-size: 11px; color: var(--muted);
+        font-variant-numeric: tabular-nums;
+    }
+    .transfer-stats b { color: var(--ink); font-weight: 600; }
+    .transfer-foot { margin-top: 10px; display: flex; align-items: center; gap: 8px; }
+    .transfer-foot .spacer { flex: 1; }
+    .transfer-msg { font-size: 12px; color: var(--green-tx); background: var(--green-bg); border-radius: 6px; padding: 6px 12px; font-weight: 600; }
+
+    /* 文件列表 */
+    .file-list { margin-top: 6px; }
+    .file-item {
+        display: flex; align-items: center; gap: 12px;
+        padding: 12px 10px; margin: 0 -10px;
+        border-bottom: 1px solid var(--line);
+        border-radius: 6px;
+        transition: background .15s;
+    }
+    .file-item:last-child { border-bottom: none; }
+    .file-item:hover { background: var(--surface-2); }
+    .file-glyph {
+        width: 34px; height: 34px; flex-shrink: 0; border-radius: 8px;
+        display: inline-flex; align-items: center; justify-content: center;
+    }
+    .glyph-blue { background: var(--blue-bg); color: var(--blue-tx); }
+    .glyph-yellow { background: var(--yellow-bg); color: var(--yellow-tx); }
+    .glyph-green { background: var(--green-bg); color: var(--green-tx); }
+    .glyph-red { background: var(--red-bg); color: var(--red-tx); }
+    .file-main { flex: 1; min-width: 0; }
+    .file-name { font-size: 13.5px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-sub { font-family: var(--mono); font-size: 11px; color: var(--faint); margin-top: 3px; display: flex; gap: 8px; align-items: baseline; }
+    .file-hash {
+        display: block; font-family: var(--mono); font-size: 11px; color: var(--muted); cursor: pointer;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px;
+        border-bottom: 1px dashed #D6D5D1; margin-top: 4px;
+    }
+    .file-hash:hover { color: var(--ink); border-bottom-color: var(--ink); }
+    .file-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .empty { text-align: center; color: var(--faint); font-size: 13px; padding: 26px 0; }
+
+    /* 校验帮助（手风琴） */
+    .verify { margin-top: 16px; border-top: 1px solid var(--line); }
+    .verify summary {
+        list-style: none; cursor: pointer; padding: 14px 2px;
+        display: flex; align-items: center; gap: 8px;
+        font-size: 13px; font-weight: 600; color: var(--ink);
+    }
+    .verify summary::-webkit-details-marker { display: none; }
+    .verify summary .plus { margin-left: auto; font-family: var(--mono); font-size: 15px; color: var(--faint); transition: transform .2s; }
+    .verify[open] summary .plus { transform: rotate(45deg); }
+    .verify-hint { font-size: 12.5px; color: var(--muted); line-height: 1.7; padding: 0 2px 10px; }
+    .verify-hint kbd {
+        font-family: var(--mono); font-size: 11px; color: var(--ink);
+        background: var(--surface-2); border: 1px solid var(--line); border-bottom-width: 2px;
+        border-radius: 4px; padding: 1px 6px;
+    }
+    .cmd-row { display: flex; align-items: stretch; gap: 8px; padding: 8px 2px; }
+    .cmd-os { flex-shrink: 0; width: 128px; font-size: 11.5px; color: var(--muted); padding-top: 9px; }
+    .cmd-code {
+        flex: 1; min-width: 0; font-family: var(--mono); font-size: 11.5px; color: var(--ink);
+        background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px;
+        padding: 8px 10px; white-space: pre-wrap; word-break: break-all; line-height: 1.55;
+    }
+    .cmd-copy {
+        flex-shrink: 0; align-self: center; height: 28px; padding: 0 12px;
+        font-family: var(--sans); font-size: 12px; font-weight: 600;
+        background: var(--surface); color: var(--ink);
+        border: 1px solid var(--line); border-radius: 5px; cursor: pointer;
+        transition: background .15s, transform .05s;
+    }
+    .cmd-copy:hover { background: var(--surface-2); }
+    .cmd-copy:active { transform: scale(0.98); }
+    .cmd-copy.ok { background: var(--green-bg); color: var(--green-tx); border-color: transparent; }
+
+    /* ---------- 能力条（Bento） ---------- */
+    .features { margin-top: 56px; }
+    .features-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; }
+    .feature {
+        background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+        padding: 24px 26px;
+    }
+    .feature .f-kicker { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); margin-bottom: 10px; }
+    .feature h3 { font-family: var(--serif); font-weight: 400; font-size: 17px; letter-spacing: -0.02em; color: var(--ink); margin: 0 0 8px; }
+    .feature p { font-size: 13px; color: var(--muted); margin: 0; line-height: 1.7; }
+    .feature p b { color: var(--ink); font-weight: 600; }
+    .feature .f-num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+    .foot {
+        margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
+        display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+        font-family: var(--mono); font-size: 11px; color: var(--faint);
+    }
+
+    /* ---------- 弹窗 ---------- */
+    .modal-mask {
+        position: fixed; inset: 0; z-index: 50;
+        background: rgba(17,17,17,.32);
+        display: flex; align-items: center; justify-content: center; padding: 24px;
+    }
+    .modal {
+        width: 100%; max-width: 620px; max-height: 86vh; overflow-y: auto;
+        background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+        padding: 26px 28px;
+        box-shadow: 0 24px 80px rgba(0,0,0,.08);
+    }
+    .modal-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+    .modal-title { font-family: var(--serif); font-size: 20px; letter-spacing: -0.02em; color: var(--ink); font-weight: 400; }
+    .modal-close { background: none; border: none; cursor: pointer; color: var(--faint); padding: 6px; border-radius: 6px; }
+    .modal-close:hover { color: var(--ink); background: var(--surface-2); }
+    .modal-file { font-size: 13px; color: var(--ink); font-weight: 600; word-break: break-all; margin-bottom: 2px; }
+    .modal-sub { font-family: var(--mono); font-size: 11px; color: var(--faint); margin-bottom: 16px; }
+    .hash-box {
+        font-family: var(--mono); font-size: 11.5px; line-height: 1.6; color: var(--ink);
+        background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
+        padding: 10px 12px; word-break: break-all; user-select: all; cursor: text;
+    }
+    .modal-label { font-size: 12px; font-weight: 600; color: var(--ink); margin: 18px 0 8px; }
+    .modal-note { font-size: 12px; color: var(--muted); line-height: 1.7; margin-top: 12px; }
+    .modal-actions { display: flex; justify-content: flex-end; margin-top: 20px; }
+
+    /* ---------- 进场动画 ---------- */
+    .reveal { opacity: 0; transform: translateY(12px); transition: opacity .6s cubic-bezier(0.16,1,0.3,1), transform .6s cubic-bezier(0.16,1,0.3,1); transition-delay: calc(var(--i, 0) * 80ms); }
+    .reveal.in { opacity: 1; transform: none; }
+    @media (prefers-reduced-motion: reduce) {
+        .reveal { opacity: 1; transform: none; transition: none; }
+        .ambient { animation: none; }
+    }
+
+    /* ---------- 响应式 ---------- */
+    @media (max-width: 980px) {
+        .grid { grid-template-columns: 1fr; }
+        .features-grid { grid-template-columns: 1fr; }
+        .page-head { padding: 40px 0 28px; }
+        .card { padding: 20px; }
+    }
+    @media (max-width: 560px) {
+        .wrap { padding: 0 16px 48px; }
+        .topbar { flex-wrap: wrap; }
+        .cmd-os { width: 100%; padding-top: 0; }
+        .cmd-row { flex-wrap: wrap; }
+        .chunks { grid-template-columns: repeat(10, 1fr); }
+    }
+</style>
+</head>
+<body>
+<div class="ambient"></div>
+
+<div class="wrap">
+
+    <!-- 顶栏 -->
+    <header class="topbar">
+        <div class="brand">
+            <span class="brand-mark">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 15.5v2a1.5 1.5 0 0 1-1.5 1.5H9a1.5 1.5 0 0 1-1.5-1.5v-2"/><path d="M12 15V5m0 0l-4 4m4-4l4 4"/></svg>
+            </span>
+            <div>
+                <div class="brand-name">消息快传</div>
+                <div class="brand-sub">LAN Clipboard · File Transfer</div>
+            </div>
+        </div>
+        <div class="top-right">
+            <span class="host">198.51.100.7:5000</span>
+            <button class="btn btn-ghost btn-sm">退出</button>
+        </div>
+    </header>
+
+    <!-- 登录条 -->
+    <div class="login reveal" style="--i:0">
+        <span class="login-label">用户名</span>
+        <input class="field" type="text" placeholder="输入用户名（空为默认用户）">
+        <button class="btn btn-dark btn-sm">进入</button>
+        <label class="check"><input type="checkbox" checked>记住我</label>
+        <span class="sep"></span>
+        <button class="btn btn-text btn-sm">清除记住的用户</button>
+        <span class="spacer"></span>
+        <span class="status-line">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+            已连接
+        </span>
+    </div>
+
+    <!-- 页首 -->
+    <section class="page-head reveal" style="--i:1">
+        <div class="page-kicker">01 — Workspace</div>
+        <h1>我的剪切板<span class="user-chip">当前用户&nbsp;qy</span></h1>
+        <p class="lede">局域网内的文本与文件中转站。剪切板和文件按用户名互相隔离，传完即达，不留痕迹于公网。</p>
+    </section>
+
+    <!-- 主栅格 -->
+    <div class="grid">
+
+        <!-- 左列：剪切板 + 最近操作 -->
+        <div class="col">
+        <section class="card reveal" style="--i:2">
+            <div class="card-head">
+                <div class="card-title">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v0H9v0z"/><path d="M9 10h6M9 14h6M9 18h3"/></svg>
+                    剪切板
+                </div>
+                <div class="card-meta">上次保存 14:32 · 1.4 KB</div>
+            </div>
+            <textarea class="clip-area" spellcheck="false">周五交付清单
+1. 图纸终版 v7 → 打印 3 份，交前台
+2. 备份盘换新：希捷 4TB，报销单已提交
+3. 下周三 10:00 评审会，带现场照片（在文件区：现场照片_20260918.zip）
+—————————
+内网共享：\\198.51.100.7\share   账号 guest / demo-pass
+会议室投屏密码：0319
+—————————
+明天带：U 盘、转接头、纸质签到表</textarea>
+            <div class="clip-toolbar">
+                <button class="btn btn-dark">保存</button>
+                <button class="btn btn-ghost">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+                    刷新
+                </button>
+                <button class="btn btn-danger">清空</button>
+                <span class="spacer"></span>
+                <span class="status-line">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                    已保存 · 14:32:05
+                </span>
+            </div>
+            <div class="clip-foot">文本仅存于本机 clipboards/用户.txt · 同名用户互相覆盖，切换前请保存</div>
+        </section>
+
+        <section class="card reveal" style="--i:3">
+            <div class="card-head">
+                <div class="card-title">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5l3 2"/></svg>
+                    最近操作
+                </div>
+                <div class="card-meta">最近 7 项</div>
+            </div>
+            <div class="act-row">
+                <span class="act-time">14:40:12</span>
+                <span class="act-text">上传 <b>现场照片_20260918.zip</b></span>
+                <span class="act-size">3.2 GB · 117 MB/s</span>
+            </div>
+            <div class="act-row">
+                <span class="act-time">14:32:05</span>
+                <span class="act-text">保存剪切板（1.4 KB）</span>
+                <span class="act-size"></span>
+            </div>
+            <div class="act-row">
+                <span class="act-time">13:02:48</span>
+                <span class="act-text">上传 <b>项目图纸_终版_v7.pdf</b></span>
+                <span class="act-size">248.6 MB · 110 MB/s</span>
+            </div>
+            <div class="act-row">
+                <span class="act-time">10:15:31</span>
+                <span class="act-text">上传 <b>会议记录_0919.docx</b></span>
+                <span class="act-size">86.4 KB</span>
+            </div>
+            <div class="act-row">
+                <span class="act-time">09-18 22:47</span>
+                <span class="act-text">下载 <b>部署包_release.tar.gz</b></span>
+                <span class="act-size">512.4 MB · 108 MB/s</span>
+            </div>
+            <div class="act-row">
+                <span class="act-time">09-18 18:40</span>
+                <span class="act-text">下载 <b>演示视频_cut02.mp4</b></span>
+                <span class="act-size">1.8 GB · 112 MB/s</span>
+            </div>
+            <div class="act-row">
+                <span class="act-time">09-18 10:03</span>
+                <span class="act-text">删除 <b>会议记录_0918.docx</b>（已被 0919 版替代）</span>
+                <span class="act-size"></span>
+            </div>
+        </section>
+        </div>
+
+        <!-- 文件 -->
+        <section class="card reveal" style="--i:3">
+            <div class="card-head">
+                <div class="card-title">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 6.5a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2v-11z"/></svg>
+                    文件
+                </div>
+                <div class="card-meta">5 个文件 · 5.8 GB</div>
+            </div>
+
+            <div class="dropzone">
+                <input type="file" multiple>
+                <div class="dz-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0l-4.5 4.5M12 4l4.5 4.5"/><path d="M4 16.5v1a2.5 2.5 0 0 0 2.5 2.5h11a2.5 2.5 0 0 0 2.5-2.5v-1"/></svg>
+                </div>
+                <div class="dz-main">拖拽文件到此处，或 <u>选择文件</u></div>
+                <div class="dz-hint">单文件 ≤ 30 GB · 可多选 · 32 MB 分片 × 4 并行</div>
+            </div>
+
+            <!-- 活跃传输（模拟） -->
+            <div class="transfer">
+                <div class="transfer-head">
+                    <span class="tag tag-blue">上传中</span>
+                    <span class="transfer-name">现场照片_20260918.zip</span>
+                    <span class="transfer-size">3.2 GB</span>
+                </div>
+                <div class="bar"><div class="bar-fill" id="barFill"></div></div>
+                <div class="chunks" id="chunkGrid"></div>
+                <div class="transfer-stats">
+                    <span><b id="stPct">0%</b></span>
+                    <span><span id="stBytes">0 / 3.2 GB</span></span>
+                    <span><b id="stSpeed">-- MB/s</b></span>
+                    <span>剩余 <span id="stEta">--</span></span>
+                    <span>已用 <span id="stUsed">0秒</span></span>
+                    <span>分片 <span id="stChunks">0/100</span></span>
+                </div>
+                <div class="transfer-foot">
+                    <span class="spacer"></span>
+                    <button class="btn btn-text btn-sm" id="replayBtn" hidden>重放演示</button>
+                    <button class="btn btn-ghost btn-sm" id="cancelBtn">取消传输</button>
+                </div>
+            </div>
+
+            <div class="file-list">
+                <div class="file-item">
+                    <span class="file-glyph glyph-red">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="M10 13h5M10 16.5h5"/></svg>
+                    </span>
+                    <div class="file-main">
+                        <div class="file-name">项目图纸_终版_v7.pdf</div>
+                        <div class="file-sub">
+                            <span class="tag tag-blue">PDF</span>
+                            <span>248.6 MB · 09-19 13:02</span>
+                        </div>
+                        <span class="file-hash" data-file="0" title="点击查看校验码与命令行下载">SHA-256 9f2c48a1b07d…e3</span>
+                    </div>
+                    <div class="file-actions">
+                        <button class="btn btn-ghost btn-sm">下载</button>
+                        <button class="btn btn-text btn-sm">删除</button>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <span class="file-glyph glyph-yellow">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9" width="16" height="11" rx="2"/><path d="M8.5 9V6.5a3.5 3.5 0 0 1 7 0V9"/></svg>
+                    </span>
+                    <div class="file-main">
+                        <div class="file-name">现场照片_20260918.zip</div>
+                        <div class="file-sub">
+                            <span class="tag tag-yellow">ZIP</span>
+                            <span>3.2 GB · 09-19 14:40</span>
+                        </div>
+                        <span class="file-hash" data-file="1" title="点击查看校验码与命令行下载">SHA-256 c41d92f7e8b3…6a</span>
+                    </div>
+                    <div class="file-actions">
+                        <button class="btn btn-ghost btn-sm">下载</button>
+                        <button class="btn btn-text btn-sm">删除</button>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <span class="file-glyph glyph-blue">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="M10 13h5M10 16.5h3"/></svg>
+                    </span>
+                    <div class="file-main">
+                        <div class="file-name">会议记录_0919.docx</div>
+                        <div class="file-sub">
+                            <span class="tag tag-blue">DOC</span>
+                            <span>86.4 KB · 09-19 10:15</span>
+                        </div>
+                        <span class="file-hash" data-file="2" title="点击查看校验码与命令行下载">SHA-256 77ae30c5d912…f8</span>
+                    </div>
+                    <div class="file-actions">
+                        <button class="btn btn-ghost btn-sm">下载</button>
+                        <button class="btn btn-text btn-sm">删除</button>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <span class="file-glyph glyph-yellow">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9" width="16" height="11" rx="2"/><path d="M8.5 9V6.5a3.5 3.5 0 0 1 7 0V9"/></svg>
+                    </span>
+                    <div class="file-main">
+                        <div class="file-name">部署包_release.tar.gz</div>
+                        <div class="file-sub">
+                            <span class="tag tag-yellow">TAR</span>
+                            <span>512.4 MB · 09-18 22:47</span>
+                        </div>
+                        <span class="file-hash" data-file="3" title="点击查看校验码与命令行下载">SHA-256 e0b7fa6c2d58…91</span>
+                    </div>
+                    <div class="file-actions">
+                        <button class="btn btn-ghost btn-sm">下载</button>
+                        <button class="btn btn-text btn-sm">删除</button>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <span class="file-glyph glyph-green">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M10 9.5l5 2.5-5 2.5v-5z"/></svg>
+                    </span>
+                    <div class="file-main">
+                        <div class="file-name">演示视频_cut02.mp4</div>
+                        <div class="file-sub">
+                            <span class="tag tag-green">MP4</span>
+                            <span>1.8 GB · 09-18 18:33</span>
+                        </div>
+                        <span class="file-hash" data-file="4" title="点击查看校验码与命令行下载">SHA-256 12f6d0a9c83b…47</span>
+                    </div>
+                    <div class="file-actions">
+                        <button class="btn btn-ghost btn-sm">下载</button>
+                        <button class="btn btn-text btn-sm">删除</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 校验帮助 -->
+            <details class="verify">
+                <summary>
+                    下载后怎么校验文件完整性？
+                    <span class="plus">+</span>
+                </summary>
+                <div class="verify-hint">
+                    把命令复制到<strong>接收端电脑</strong>执行，文件名换成实际下载到的名字（浏览器遇到同名文件可能加了 <kbd>(1)</kbd>），拿输出的校验码和文件行里的 SHA-256 对比。只比对 64 位十六进制字符，大小写和空格不用管。
+                </div>
+                <div class="cmd-row">
+                    <span class="cmd-os">Windows · CMD</span>
+                    <code class="cmd-code">certutil -hashfile "文件名.zip" SHA256</code>
+                    <button class="cmd-copy" type="button">复制</button>
+                </div>
+                <div class="cmd-row">
+                    <span class="cmd-os">Windows · PowerShell</span>
+                    <code class="cmd-code">Get-FileHash -Algorithm SHA256 "文件名.zip"</code>
+                    <button class="cmd-copy" type="button">复制</button>
+                </div>
+                <div class="cmd-row">
+                    <span class="cmd-os">Linux</span>
+                    <code class="cmd-code">sha256sum "文件名.zip"</code>
+                    <button class="cmd-copy" type="button">复制</button>
+                </div>
+                <div class="cmd-row">
+                    <span class="cmd-os">macOS</span>
+                    <code class="cmd-code">shasum -a 256 "文件名.zip"</code>
+                    <button class="cmd-copy" type="button">复制</button>
+                </div>
+            </details>
+        </section>
+    </div>
+
+    <!-- 能力条 -->
+    <section class="features">
+        <div class="features-grid">
+            <div class="feature reveal" style="--i:0">
+                <div class="f-kicker">Transfer</div>
+                <h3>32 MB 分片 × 4 路并行</h3>
+                <p>上传与下载都按 <b class="f-num">32 MB</b> 切片、<b class="f-num">4</b> 路同时传输；分片以裸 body 直传，比 multipart 表单快约 <b class="f-num">2.9</b> 倍，千兆局域网可跑满网卡。</p>
+            </div>
+            <div class="feature reveal" style="--i:1">
+                <div class="f-kicker">Large File</div>
+                <h3>大文件流式落盘</h3>
+                <p>超过 <b class="f-num">1 GB</b> 自动交给浏览器下载管理器，无内存上限，支持断点续传；也可在文件详情里取 <b class="f-num">curl / aria2</b> 命令。</p>
+            </div>
+            <div class="feature reveal" style="--i:2">
+                <div class="f-kicker">Integrity</div>
+                <h3>SHA-256 校验闭环</h3>
+                <p>落盘即算校验码，接收端一条命令即可比对，防止传输出错。<b class="f-num">43 MB/s</b> 页面内自算，大文件推荐命令行。</p>
+            </div>
+        </div>
+    </section>
+
+    <footer class="foot">
+        <span>服务只监听局域网 · 单用户名隔离 · 无鉴权，请勿暴露公网</span>
+        <span>demo2 · 静态设计稿 · 数据为模拟</span>
+    </footer>
+</div>
+
+<!-- 文件详情弹窗 -->
+<div class="modal-mask" id="hashModal" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal-head">
+            <div class="modal-title" id="modalTitle">文件详情</div>
+            <button class="modal-close" id="modalClose" aria-label="关闭">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+        </div>
+        <div class="modal-file" id="modalFile">—</div>
+        <div class="modal-sub" id="modalSub">—</div>
+        <div class="hash-box" id="modalHash">—</div>
+        <div class="modal-label">在接收端本机校验（复制后执行）</div>
+        <div id="modalVerify"></div>
+        <div class="modal-label">命令行下载（支持断点续传，大文件推荐）</div>
+        <div id="modalDownload"></div>
+        <div class="modal-note">命令里的服务器地址取自当前页面地址栏；若本机用 localhost 打开，发给别人前把地址换成服务器的局域网 IP。</div>
+        <div class="modal-actions">
+            <button class="btn btn-ghost" id="modalClose2">关闭</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ========== 演示数据（模拟） ==========
+    var HOST = 'http://198.51.100.7:5000';
+    var FILES = [
+        { name: '项目图纸_终版_v7.pdf',   size: '248.6 MB', date: '09-19 13:02', hash: '9f2c48a1b07d3e65a8c1f0b4d27e9a53c681f4ab0d9e73c2b5a8164f0ec9d7e3' },
+        { name: '现场照片_20260918.zip',  size: '3.2 GB',   date: '09-19 14:40', hash: 'c41d92f7e8b3a05d617c2f9e8b04a3d71c5e6f8092ab4d3c7e1f506a9b8d24c6' },
+        { name: '会议记录_0919.docx',     size: '86.4 KB',  date: '09-19 10:15', hash: '77ae30c5d9124b8f60a1e93c25d7f4081b6a29e50c3d8f74b0a216e9c58d3f17' },
+        { name: '部署包_release.tar.gz',  size: '512.4 MB', date: '09-18 22:47', hash: 'e0b7fa6c2d58931470b2a8e6d5c30f91a47b6d28053e9c14f7a06b28d1e49c5a' },
+        { name: '演示视频_cut02.mp4',     size: '1.8 GB',   date: '09-18 18:33', hash: '12f6d0a9c83b57e240d6a19f38b05c74e692d80a1c4f73b6e502819dac4b67ef' }
+    ];
+
+    function escapeHtml(text) {
+        return String(text).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+
+    // ========== 传输演示：3.2GB / 32MB = 100 片，4 路并行 ==========
+    var TOTAL_CHUNKS = 100, PARALLEL = 4, TOTAL_MB = 3276.8; // 3.2 GB
+    var grid = document.getElementById('chunkGrid');
+    var cells = [];
+    for (var i = 0; i < TOTAL_CHUNKS; i++) {
+        var c = document.createElement('div');
+        c.className = 'chunk';
+        grid.appendChild(c);
+        cells.push(c);
+    }
+    var barFill = document.getElementById('barFill');
+    var stPct = document.getElementById('stPct');
+    var stBytes = document.getElementById('stBytes');
+    var stSpeed = document.getElementById('stSpeed');
+    var stEta = document.getElementById('stEta');
+    var stUsed = document.getElementById('stUsed');
+    var stChunks = document.getElementById('stChunks');
+    var cancelBtn = document.getElementById('cancelBtn');
+    var replayBtn = document.getElementById('replayBtn');
+
+    var done = 0, prog = 0, t0 = Date.now(), speedBase = 112.6, timer = null, cancelled = false;
+
+    function fmtSpeed(mbps) { return mbps >= 1024 ? (mbps / 1024).toFixed(2) + ' GB/s' : mbps.toFixed(1) + ' MB/s'; }
+
+    function tickDemo() {
+        if (cancelled) return;
+        var jitter = speedBase + (Math.random() * 18 - 9);           // 103 ~ 121 MB/s
+        var mbPerTick = jitter * 0.25;                                // 每 250ms 传输量
+        prog = Math.min(TOTAL_CHUNKS, prog + mbPerTick / (TOTAL_MB / TOTAL_CHUNKS));
+
+        // 已完成的分片
+        var newDone = Math.floor(prog);
+        while (done < newDone) { cells[done].className = 'chunk done'; done++; }
+        // 在途的 4 路
+        for (var i = 0; i < TOTAL_CHUNKS; i++) {
+            if (cells[i].className === 'chunk flying') cells[i].className = 'chunk';
+        }
+        var flying = 0, next = done;
+        while (flying < PARALLEL && next < TOTAL_CHUNKS) { cells[next].className = 'chunk flying'; next++; flying++; }
+
+        var pct = Math.min(100, (prog / TOTAL_CHUNKS) * 100);
+        var transferred = TOTAL_MB * pct / 100;
+        var eta = pct >= 100 ? 0 : (TOTAL_MB - transferred) / jitter;
+
+        barFill.style.width = pct.toFixed(1) + '%';
+        stPct.textContent = Math.floor(pct) + '%';
+        stBytes.textContent = (transferred >= 1024 ? (transferred / 1024).toFixed(2) + ' / 3.2 GB' : transferred.toFixed(0) + ' MB / 3.2 GB');
+        stSpeed.textContent = fmtSpeed(jitter);
+        stUsed.textContent = Math.round((Date.now() - t0) / 1000) + '秒';
+        stChunks.textContent = done + '/' + TOTAL_CHUNKS;
+        if (eta > 0) {
+            stEta.textContent = eta >= 60 ? Math.floor(eta / 60) + '分' + Math.ceil(eta % 60) + '秒' : Math.ceil(eta) + '秒';
+        }
+
+        if (prog >= TOTAL_CHUNKS) {
+            stEta.textContent = '0秒';
+            barFill.classList.add('done');
+            cancelBtn.hidden = true;
+            replayBtn.hidden = false;
+            clearInterval(timer);
+        }
+    }
+
+    function startDemo() {
+        done = 0; prog = 0; t0 = Date.now(); cancelled = false;
+        barFill.classList.remove('done');
+        barFill.style.width = '0%';
+        cancelBtn.hidden = false; replayBtn.hidden = true;
+        cells.forEach(function (c) { c.className = 'chunk'; });
+        if (timer) clearInterval(timer);
+        timer = setInterval(tickDemo, 250);
+        tickDemo();
+    }
+
+    cancelBtn.addEventListener('click', function () {
+        cancelled = true;
+        clearInterval(timer);
+        for (var i = 0; i < TOTAL_CHUNKS; i++) {
+            if (cells[i].className === 'chunk flying') cells[i].className = 'chunk';
+        }
+        cancelBtn.hidden = true;
+        replayBtn.hidden = false;
+        stSpeed.textContent = '已取消';
+        stEta.textContent = '--';
+    });
+    replayBtn.addEventListener('click', startDemo);
+    startDemo();
+
+    // ========== 复制（局域网 HTTP 无 navigator.clipboard，用 execCommand 兜底） ==========
+    function copyText(text) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
+        document.body.appendChild(ta);
+        ta.select();
+        var ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+        document.body.removeChild(ta);
+        return ok;
+    }
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest && e.target.closest('.cmd-copy');
+        if (!btn) return;
+        var code = btn.parentElement.querySelector('.cmd-code');
+        var ok = copyText(code.textContent);
+        btn.textContent = ok ? '已复制' : '复制失败';
+        btn.classList.toggle('ok', ok);
+        setTimeout(function () { btn.textContent = '复制'; btn.classList.remove('ok'); }, 1500);
+    });
+
+    // ========== 文件详情弹窗 ==========
+    var modal = document.getElementById('hashModal');
+
+    function cmdRow(os, cmd) {
+        return '<div class="cmd-row"><span class="cmd-os">' + os +
+            '</span><code class="cmd-code">' + escapeHtml(cmd) +
+            '</code><button class="cmd-copy" type="button">复制</button></div>';
+    }
+    function openModal(idx) {
+        var f = FILES[idx];
+        if (!f) return;
+        var url = HOST + '/api/download?username=用户&filename=' + encodeURIComponent(f.name);
+        document.getElementById('modalFile').textContent = f.name;
+        document.getElementById('modalSub').textContent = f.size + ' · ' + f.date + ' · SHA-256';
+        document.getElementById('modalHash').textContent = f.hash;
+        document.getElementById('modalVerify').innerHTML =
+            cmdRow('Windows · CMD', 'certutil -hashfile "' + f.name + '" SHA256') +
+            cmdRow('Windows · PowerShell', 'Get-FileHash -Algorithm SHA256 "' + f.name + '"') +
+            cmdRow('Linux', 'sha256sum "' + f.name + '"') +
+            cmdRow('macOS', 'shasum -a 256 "' + f.name + '"');
+        document.getElementById('modalDownload').innerHTML =
+            cmdRow('curl · 断点续传', 'curl -C - -o "' + f.name + '" "' + url + '"') +
+            cmdRow('aria2 · 4 线程', 'aria2c -x4 -s4 -c -o "' + f.name + '" "' + url + '"');
+        modal.hidden = false;
+    }
+    function closeModal() { modal.hidden = true; }
+
+    document.querySelectorAll('.file-hash').forEach(function (el) {
+        el.addEventListener('click', function () { openModal(Number(el.dataset.file)); });
+    });
+    document.getElementById('modalClose').addEventListener('click', closeModal);
+    document.getElementById('modalClose2').addEventListener('click', closeModal);
+    modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modal.hidden) closeModal(); });
+
+    // ========== 进场动画 ==========
+    var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+            if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
+        });
+    }, { threshold: 0.08 });
+    document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
+    // 兜底：进场动画 2.5 秒后全部放行，避免任何环境下内容停留于透明态
+    setTimeout(function () {
+        document.querySelectorAll('.reveal:not(.in)').forEach(function (el) { el.classList.add('in'); });
+    }, 2500);
+
+    // 拖拽高亮（仅样式演示）
+    var dz = document.querySelector('.dropzone');
+    ['dragenter', 'dragover'].forEach(function (ev) {
+        dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.add('dragover'); });
+    });
+    ['dragleave', 'drop'].forEach(function (ev) {
+        dz.addEventListener(ev, function (e) {
+            e.preventDefault();
+            if (ev === 'dragleave' && dz.contains(e.relatedTarget)) return;
+            dz.classList.remove('dragover');
+        });
+    });
+</script>
+</body>
+</html>

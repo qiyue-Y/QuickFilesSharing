@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>消息快传 · 浪漫主义云海</title>
+<style>
+    :root {
+        /* ---- 色板（艺术方向沿用：乳白 / 暖金 / 灰蓝 / 远山黛 / 朝霞玫） ---- */
+        --milk: #f4efe6;      /* 云体亮面 */
+        --gold: #dcb67f;      /* 暖金：只作描边与光晕，不作小字文字色 */
+        --blue: #97a3b2;      /* 天空底层 */
+        --slate: #5c6d82;     /* 远山黛：装饰线条 */
+        --rose: #c9929c;      /* 朝霞玫：装饰底色 */
+        /* ---- 文字色（对比度锁，实测数字见 README） ---- */
+        --ink: #3f4a5d;       /* 标题 / 大数字，岛面 8.7:1 */
+        --body: #43506a;      /* 正文，岛面 7.9:1 */
+        --mist: #5a6779;      /* 次要文字（时间 / 速度 / 副题），岛面 5.6:1 */
+        --plaque: #4e5c6e;    /* 铭牌小字，晨光天空 6.0:1 */
+        --rose-deep: #8a5a64; /* 铭副题 / 印章底 / 下载向标签，天空 4.8:1 */
+        --gold-text: #7d5f27; /* 金系小字（扩展名 / 方向标签 / 按钮字），岛面 4.5:1 */
+        --gold-num: #9c7530;  /* 完成态大数字，34px 大字 4.1:1（大字标准 3:1） */
+        --danger: #7d5058;    /* 删除悬停，岛面 6.5:1 */
+        --deep: #28303f;      /* 页脚，压在深色天空上 5.2:1 */
+        --ph: #67717f;        /* 输入占位，岛面 4.8:1 */
+        /* ---- 字体：楷体只用于标题与铭牌，正文衬线 ---- */
+        --serif: Georgia, "Times New Roman", "Songti SC", STSong, SimSun, "Noto Serif CJK SC", serif;
+        --kai: "Kaiti SC", STKaiti, KaiTi, 楷体, "Noto Serif CJK SC", SimSun, serif;
+        /* ---- 圆角三档：卡片 18 / 小件 8 / 主按钮胶囊（全页唯此三档） ---- */
+        --r-card: 18px;
+        --r-chip: 8px;
+        --r-pill: 999px;
+        /* ---- 字号阶梯（全页七档，最小 12px） ---- */
+        --fs-h1: 46px;    /* 铭牌主标题 */
+        --fs-h2: 24px;    /* 区块标题 */
+        --fs-num: 34px;   /* 传输百分比大数字 */
+        --fs-name: 15px;  /* 传输文件名 */
+        --fs-body: 14px;  /* 正文 / 剪切板 / 文件名 / 输入 */
+        --fs-label: 13px; /* 铭牌小字 / 按钮 / toast */
+        --fs-meta: 12px;  /* 元信息（时间 / 尺寸 / 速度 / 副题 / 页脚） */
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+        font-family: var(--serif);
+        font-size: var(--fs-body);
+        line-height: 1.7;
+        color: var(--ink);
+        min-height: 100vh;
+        background: #e9e2d3;
+    }
+    ::selection { background: rgba(220, 182, 127, .35); }
+
+    /* ---- 可见焦点环：暖金描边，融入晨光语言（键盘导航时出现） ---- */
+    :focus-visible {
+        outline: 2px solid #b98a3e;
+        outline-offset: 2px;
+    }
+
+    /* ============ 天空 · 云海 · 远山 ============ */
+    .sky {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        overflow: hidden;
+        background:
+            radial-gradient(1100px 700px at 10% -8%, rgba(255, 232, 178, .55), rgba(255, 232, 178, 0) 62%),
+            linear-gradient(to bottom,
+                #f8f1e2 0%, #f4efe6 22%, #eee4d4 40%, #dcd7cc 58%,
+                #c2c6cb 76%, #a4aeb9 92%, #97a3b2 100%);
+    }
+    /* 晨光呼吸：光强的缓慢起伏，静态天空的呼吸感 */
+    .sunray {
+        position: absolute;
+        top: -25%; left: -20%;
+        width: 110%; height: 170%;
+        background: linear-gradient(112deg,
+            rgba(255, 228, 170, .38) 0%,
+            rgba(255, 228, 170, .16) 34%,
+            rgba(255, 232, 180, .05) 58%,
+            transparent 72%);
+        animation: breathe 20s ease-in-out infinite alternate;
+    }
+    @keyframes breathe { from { opacity: .72; } to { opacity: 1; } }
+
+    /* 云带视差：六层不同速度横移（只动 transform），营造纵深 */
+    .cl {
+        position: absolute;
+        left: 0;
+        width: 200%;
+        pointer-events: none;
+        background-repeat: repeat-x;
+        background-size: 50% 100%;
+        animation: cloudDrift linear infinite;
+    }
+    @keyframes cloudDrift { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+    .cl1 { top: 3%;  height: 170px; animation-duration: 190s;
+        background-image:
+            radial-gradient(38% 55% at 18% 55%, rgba(201,146,156,.20), transparent 66%),
+            radial-gradient(30% 45% at 46% 40%, rgba(151,163,178,.16), transparent 66%),
+            radial-gradient(42% 60% at 74% 60%, rgba(201,146,156,.15), transparent 66%); }
+    .cl2 { top: 12%; height: 200px; animation-duration: 152s;
+        background-image:
+            radial-gradient(40% 58% at 26% 50%, rgba(151,163,178,.26), transparent 66%),
+            radial-gradient(32% 48% at 60% 42%, rgba(92,109,130,.16), transparent 66%),
+            radial-gradient(44% 62% at 88% 58%, rgba(151,163,178,.20), transparent 66%); }
+    .cl3 { top: 24%; height: 220px; animation-duration: 122s;
+        background-image:
+            radial-gradient(42% 60% at 14% 55%, rgba(92,109,130,.16), transparent 64%),
+            radial-gradient(36% 52% at 44% 45%, rgba(151,163,178,.24), transparent 66%),
+            radial-gradient(46% 64% at 78% 55%, rgba(92,109,130,.18), transparent 64%); }
+    .cl4 { top: 36%; height: 240px; animation-duration: 96s;
+        background-image:
+            radial-gradient(44% 60% at 30% 55%, rgba(220,182,127,.30), transparent 68%),
+            radial-gradient(36% 50% at 68% 45%, rgba(220,182,127,.22), transparent 68%),
+            radial-gradient(26% 36% at 8% 60%,  rgba(255,232,190,.24), transparent 66%); }
+    .cl5 { top: 50%; height: 270px; animation-duration: 78s;
+        background-image:
+            radial-gradient(46% 68% at 22% 50%, rgba(244,239,230,.78), transparent 70%),
+            radial-gradient(40% 58% at 56% 45%, rgba(244,239,230,.62), transparent 70%),
+            radial-gradient(50% 72% at 86% 55%, rgba(244,239,230,.70), transparent 70%),
+            radial-gradient(28% 40% at 42% 70%, rgba(220,182,127,.14), transparent 68%); }
+    .cl6 { top: 62%; height: 300px; animation-duration: 62s;
+        background-image:
+            radial-gradient(48% 70% at 26% 50%, rgba(244,239,230,.92), transparent 70%),
+            radial-gradient(42% 60% at 60% 45%, rgba(244,239,230,.80), transparent 70%),
+            radial-gradient(52% 74% at 90% 55%, rgba(244,239,230,.88), transparent 70%),
+            radial-gradient(30% 42% at 10% 65%, rgba(220,182,127,.16), transparent 68%); }
+
+    /* 远山剪影：三层静态 SVG，越远越淡越蓝 */
+    .sky svg { position: absolute; bottom: 0; left: 0; width: 100%; display: block; }
+    .m3 { height: 32vh; opacity: .50; }
+    .m2 { height: 24vh; opacity: .68; }
+    .m1 { height: 15vh; opacity: .88; }
+
+    /* ============ 光柱层 ============ */
+    .beam-layer {
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
+        overflow: hidden;
+    }
+    /* 单元素 blur：光柱体积感只花在一个元素的滤镜上 */
+    .beam {
+        position: absolute;
+        top: 0;
+        width: 160px;
+        overflow: hidden;
+        filter: blur(13px);
+        transform-origin: top center;
+        transition: height .6s linear, opacity .5s ease, transform .9s ease;
+        will-change: height;
+    }
+    .beam-down {
+        background: linear-gradient(to bottom,
+            rgba(255, 250, 238, 0) 0%,
+            rgba(255, 244, 216, .42) 18%,
+            rgba(255, 232, 186, .30) 55%,
+            rgba(255, 240, 210, .14) 86%,
+            rgba(255, 244, 220, .34) 100%);
+    }
+    .beam-up {
+        background: linear-gradient(to top,
+            rgba(255, 250, 238, .40) 0%,
+            rgba(255, 244, 216, .32) 25%,
+            rgba(255, 232, 186, .20) 60%,
+            rgba(255, 240, 210, .04) 100%);
+    }
+    /* 微光流动：指示传输方向（上传下坠 / 下载上升） */
+    .beam-flow {
+        position: absolute;
+        left: 0; top: 0;
+        width: 100%; height: 200%;
+        background: repeating-linear-gradient(to bottom,
+            rgba(255, 248, 228, 0) 0px,
+            rgba(255, 248, 228, .30) 34px,
+            rgba(255, 248, 228, 0) 78px);
+        animation: flowDown 7s linear infinite;
+    }
+    .beam-up .beam-flow { animation-name: flowUp; }
+    @keyframes flowDown { from { transform: translateY(-50%); } to { transform: translateY(0); } }
+    @keyframes flowUp   { from { transform: translateY(0); }   to { transform: translateY(-50%); } }
+    .beam.done { opacity: 0 !important; transform: scaleX(.18); }
+
+    /* ============ 版面 ============ */
+    .page {
+        position: relative;
+        z-index: 2;
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 40px 32px 90px;
+    }
+
+    /* 光之岛：所有卡片的基底（白光投影 + 暖金细描边） */
+    .isle {
+        background: linear-gradient(165deg,
+            rgba(255, 254, 250, .94) 0%,
+            rgba(247, 242, 233, .82) 60%,
+            rgba(240, 233, 220, .72) 100%);
+        border: 1px solid rgba(220, 182, 127, .30);
+        border-radius: var(--r-card);
+        box-shadow:
+            0 0 22px 6px rgba(255, 248, 231, .62),
+            0 24px 48px -22px rgba(92, 109, 130, .38),
+            0 60px 90px -50px rgba(255, 236, 200, .50);
+    }
+    /* 岛的漂浮：悬在云海上的失重感，幅度 ±5px、周期 ≥18s，不晃眼 */
+    @keyframes drift { from { transform: translateY(-5px); } to { transform: translateY(5px); } }
+
+    /* ============ 山巅瞭望台铭牌 ============ */
+    .plaque {
+        position: relative;
+        text-align: center;
+        padding: 56px 0 6px;
+    }
+    .plaque h1 {
+        margin: 0;
+        font-family: var(--kai);
+        font-size: var(--fs-h1);
+        line-height: 1.25;
+        font-weight: 400;
+        letter-spacing: .22em;
+        text-indent: .22em;
+        color: var(--ink);
+        text-shadow: 0 2px 24px rgba(255, 240, 210, .8);
+    }
+    .plaque-sub {
+        margin: 14px 0 0;
+        font-size: var(--fs-label);
+        line-height: 1.6;
+        letter-spacing: .4em;
+        text-indent: .4em;
+        color: var(--rose-deep);
+    }
+    .plaque-line {
+        width: 280px;
+        height: 1px;
+        margin: 22px auto 18px;
+        background: linear-gradient(90deg, transparent, rgba(220, 182, 127, .85), transparent);
+    }
+    .plaque-meta { margin: 0; }
+    .plaque-meta p {
+        margin: 0 0 7px;
+        font-size: var(--fs-label);
+        line-height: 1.9;
+        color: var(--plaque);
+        font-variant-numeric: tabular-nums;
+    }
+    /* 在线状态点：语义状态（服务在线），全页唯一一枚 */
+    .dot {
+        display: inline-block;
+        width: 7px; height: 7px;
+        border-radius: 50%;
+        background: var(--gold);
+        box-shadow: 0 0 8px 2px rgba(220, 182, 127, .6);
+        margin-right: 9px;
+        vertical-align: 1px;
+        animation: pulse 4s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+    /* 印章：铭牌的品牌印记，装饰件（aria-hidden），深玫底保证可视性 */
+    .seal {
+        position: absolute;
+        right: 7%; top: 9%;
+        width: 34px; height: 40px;
+        background: var(--rose-deep);
+        color: #fdf6ec;
+        font-family: var(--kai);
+        writing-mode: vertical-rl;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: var(--fs-label);
+        letter-spacing: 3px;
+        border-radius: var(--r-chip);
+        box-shadow: 0 2px 12px rgba(138, 90, 100, .45);
+        opacity: .92;
+    }
+
+    /* ============ 区块标题 ============ */
+    .sec-head {
+        display: flex;
+        align-items: baseline;
+        gap: 14px;
+        margin-bottom: 18px;
+    }
+    .sec-head h2 {
+        margin: 0;
+        font-family: var(--kai);
+        font-size: var(--fs-h2);
+        line-height: 1.4;
+        font-weight: 400;
+        color: var(--ink);
+    }
+    .sec-sub {
+        font-size: var(--fs-meta);
+        line-height: 1.5;
+        color: var(--mist);
+    }
+
+    /* ============ 主区两栏 ============ */
+    .cols {
+        display: grid;
+        grid-template-columns: 7fr 5fr;
+        gap: 36px;
+        margin-top: 42px;
+        align-items: start;
+    }
+    .panel { padding: 26px 28px; }
+
+    /* ---- 剪切板：云上信笺（整卡是一座缓漂的岛） ---- */
+    .clipboard { animation: drift 13s ease-in-out infinite alternate; }
+    .note {
+        padding: 13px 4px 10px;
+        border-bottom: 1px solid rgba(151, 163, 178, .18);
+    }
+    .note:last-of-type { border-bottom: none; }
+    .note-head {
+        display: flex;
+        justify-content: space-between;
+        font-size: var(--fs-meta);
+        line-height: 1.5;
+        color: var(--mist);
+        margin-bottom: 8px;
+        font-variant-numeric: tabular-nums;
+    }
+    .note-body {
+        margin: 0;
+        font-size: var(--fs-body);
+        line-height: 1.75;
+        color: var(--body);
+    }
+    pre.note-body {
+        white-space: pre-wrap;
+        font-family: var(--serif);
+    }
+    .note-foot { text-align: right; margin-top: 6px; }
+    .word-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-family: var(--serif);
+        font-size: var(--fs-label);
+        color: var(--mist);
+        padding: 3px 2px;
+        border-bottom: 1px solid transparent;
+        transition: color .25s, border-color .25s, text-shadow .25s, transform .1s;
+    }
+    .word-btn:hover {
+        color: var(--gold-text);
+        text-shadow: 0 0 12px rgba(255, 226, 168, .9);
+        border-bottom-color: rgba(220, 182, 127, .55);
+    }
+    .word-btn:hover.danger { color: var(--danger); text-shadow: 0 0 12px rgba(201,146,156,.6); }
+    /* 物理按压反馈 */
+    .word-btn:active { transform: translateY(1px); }
+    .send-row {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        margin-top: 18px;
+        padding-top: 16px;
+        border-top: 1px solid rgba(220, 182, 127, .28);
+    }
+    .send-row input {
+        flex: 1;
+        min-width: 0;
+        background: transparent;
+        border: none;
+        border-bottom: 1px solid rgba(220, 182, 127, .4);
+        font-family: var(--serif);
+        font-size: var(--fs-body);
+        color: var(--body);
+        padding: 8px 2px;
+        outline: none;
+        transition: border-color .3s;
+    }
+    .send-row input:focus { border-bottom-color: rgba(220, 182, 127, .95); }
+    .send-row input::placeholder { color: var(--ph); }
+
+    /* ---- 文件库：群岛（每张小岛各自漂浮） ---- */
+    .f-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+    }
+    .f-card {
+        padding: 15px 17px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        animation: drift 10s ease-in-out infinite alternate;
+    }
+    .f-card:nth-child(2n) { animation-duration: 12s; animation-delay: -4s; }
+    .f-card:nth-child(3n) { animation-duration: 14s; animation-delay: -8s; }
+    .f-card:nth-child(4n) { animation-duration: 9s;  animation-delay: -2s; }
+    .f-card:nth-child(5n) { animation-duration: 11s; animation-delay: -6s; }
+    /* 数据行改列对齐：首行扩展名左 / 尺寸右，末行时间左 / 操作右 */
+    .f-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 10px;
+    }
+    .f-ext {
+        align-self: flex-start;
+        font-size: var(--fs-meta);
+        letter-spacing: .16em;
+        color: var(--gold-text);
+        border: 1px solid rgba(220, 182, 127, .38);
+        border-radius: var(--r-chip);
+        padding: 2px 7px 2px 9px;
+    }
+    .f-size {
+        font-size: var(--fs-meta);
+        line-height: 1.5;
+        color: var(--mist);
+        font-variant-numeric: tabular-nums;
+    }
+    .f-name {
+        font-size: var(--fs-body);
+        color: var(--body);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .f-bottom {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        margin-top: 2px;
+    }
+    .f-time {
+        font-size: var(--fs-meta);
+        line-height: 1.5;
+        color: var(--mist);
+        font-variant-numeric: tabular-nums;
+    }
+    .f-acts { display: flex; gap: 16px; }
+
+    /* ============ 传输区 ============ */
+    .transfers { margin-top: 48px; }
+    .transfers .sec-head { align-items: center; }
+    .demo-btn {
+        margin-left: auto;
+        font-family: var(--serif);
+        font-size: var(--fs-label);
+        color: var(--gold-text);
+        background: linear-gradient(160deg, rgba(255, 244, 220, .9), rgba(244, 232, 204, .65));
+        border: 1px solid rgba(220, 182, 127, .55);
+        border-radius: var(--r-pill);
+        padding: 10px 26px;
+        cursor: pointer;
+        box-shadow: 0 0 18px rgba(255, 232, 186, .35), inset 0 0 12px rgba(255, 248, 225, .7);
+        transition: box-shadow .3s, transform .3s, opacity .3s;
+    }
+    .demo-btn:hover {
+        box-shadow: 0 0 30px rgba(255, 232, 186, .65), inset 0 0 16px rgba(255, 248, 225, .9);
+        transform: translateY(-1px);
+    }
+    .demo-btn:active { transform: translateY(0) scale(.98); }
+    .demo-btn.busy { opacity: .45; cursor: default; transform: none; }
+    .tr-row { display: flex; gap: 26px; }
+    .tr-card {
+        position: relative;
+        flex: 1;
+        min-width: 0;
+        padding: 20px 22px 16px;
+        animation: none; /* 传输中的岛是安静的：被光柱接住时不漂浮 */
+    }
+    .tr-card.settled { animation: drift 12s ease-in-out infinite alternate; opacity: .85; }
+    .tr-card.fade { opacity: 0; transform: translateY(-10px); transition: opacity .8s ease, transform .8s ease; }
+    .tr-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+    }
+    .tr-dir {
+        font-size: var(--fs-meta);
+        color: var(--gold-text);
+    }
+    .tr-down .tr-dir { color: var(--rose-deep); }
+    .tr-size {
+        font-size: var(--fs-meta);
+        line-height: 1.5;
+        color: var(--mist);
+        font-variant-numeric: tabular-nums;
+    }
+    .tr-name {
+        margin-top: 7px;
+        font-size: var(--fs-name);
+        line-height: 1.5;
+        color: var(--body);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .tr-fig {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 16px;
+        margin-top: 10px;
+    }
+    .tr-num b {
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: var(--fs-num);
+        line-height: 1.1;
+        font-weight: 400;
+        color: var(--ink);
+        font-variant-numeric: tabular-nums;
+    }
+    .tr-num em {
+        font-style: normal;
+        font-size: var(--fs-name);
+        margin-left: 2px;
+        color: var(--mist);
+    }
+    .tr-speed {
+        font-weight: 300;
+        font-size: var(--fs-meta);
+        color: var(--mist);
+        font-variant-numeric: tabular-nums;
+    }
+    .settled .tr-num b { color: var(--gold-num); }
+    .ridge {
+        height: 1px;
+        margin-top: 14px;
+        background: rgba(220, 182, 127, .22);
+    }
+    .ridge i {
+        display: block;
+        height: 1px;
+        width: 0;
+        background: linear-gradient(90deg, rgba(255, 232, 186, .15), rgba(255, 224, 160, .9));
+        box-shadow: 0 0 6px rgba(255, 226, 168, .8);
+        transition: width .6s linear;
+    }
+    /* 完成脉冲：白金光层掠过卡片，状态切换的完成反馈 */
+    .arrive::after {
+        content: '';
+        position: absolute;
+        inset: -2px;
+        border-radius: inherit;
+        background: radial-gradient(80% 90% at 50% 20%,
+            rgba(255, 248, 225, .95), rgba(255, 236, 195, .55) 45%, transparent 75%);
+        animation: flash 1.4s ease-out forwards;
+        pointer-events: none;
+        z-index: 3;
+    }
+    @keyframes flash { 0% { opacity: 0; } 18% { opacity: .92; } 100% { opacity: 0; } }
+
+    /* ============ 页脚 / 提示 ============ */
+    .colophon {
+        text-align: center;
+        margin-top: 58px;
+    }
+    .colophon p {
+        margin: 0 0 6px;
+        font-size: var(--fs-meta);
+        line-height: 1.6;
+        color: var(--deep);
+    }
+    .colophon .colo-poem { font-size: var(--fs-label); }
+    #toast {
+        position: fixed;
+        left: 50%; bottom: 36px;
+        transform: translate(-50%, 14px);
+        opacity: 0;
+        background: linear-gradient(160deg, rgba(255, 252, 244, .95), rgba(244, 238, 227, .92));
+        border: 1px solid rgba(220, 182, 127, .5);
+        border-radius: var(--r-chip);
+        padding: 10px 22px;
+        font-family: var(--serif);
+        font-size: var(--fs-label);
+        color: var(--mist);
+        box-shadow: 0 10px 30px -12px rgba(92, 109, 130, .4), 0 0 20px rgba(255, 236, 195, .4);
+        transition: opacity .35s ease, transform .35s ease;
+        z-index: 10;
+        pointer-events: none;
+        max-width: 86vw;
+    }
+    #toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    /* ============ 窄屏 ============ */
+    @media (max-width: 980px) {
+        .page { padding: 28px 18px 70px; }
+        .cols { grid-template-columns: 1fr; }
+        .tr-row { flex-direction: column; }
+        .plaque h1 { font-size: 34px; }
+        .seal { display: none; }
+    }
+    @media (max-width: 560px) {
+        .f-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ============ 减弱动态偏好：云带 / 漂浮 / 光柱全部静止 ============
+       光柱退化为静态渐变（长度仍随进度变化），进度条直接跳变到目标宽度 */
+    @media (prefers-reduced-motion: reduce) {
+        .sunray, .cl, .dot, .beam-flow,
+        .clipboard, .f-card, .tr-card.settled { animation: none !important; }
+        .arrive::after { display: none; }
+        .beam, .ridge i, .tr-card.fade { transition: none !important; }
+    }
+</style>
+</head>
+<body>
+
+<!-- 天空：渐变 + 晨光 + 六层云带 + 三层远山 -->
+<div class="sky" aria-hidden="true">
+    <div class="cl cl1"></div>
+    <div class="cl cl2"></div>
+    <div class="cl cl3"></div>
+    <div class="sunray"></div>
+    <div class="cl cl4"></div>
+    <div class="cl cl5"></div>
+    <div class="cl cl6"></div>
+    <svg class="m3" viewBox="0 0 1440 300" preserveAspectRatio="none">
+        <path fill="#aeb9c4" d="M0 300 L0 210 C90 190 150 215 230 195 C330 170 390 205 480 185 C570 165 650 200 740 180 C840 158 900 195 1000 172 C1100 150 1180 190 1280 165 C1350 148 1400 170 1440 160 L1440 300 Z"/>
+    </svg>
+    <svg class="m2" viewBox="0 0 1440 240" preserveAspectRatio="none">
+        <path fill="#93a2b1" d="M0 240 L0 170 C120 150 210 185 330 160 C450 135 520 175 640 150 C760 125 850 170 970 142 C1080 118 1170 160 1290 132 C1360 116 1410 140 1440 132 L1440 240 Z"/>
+    </svg>
+    <svg class="m1" viewBox="0 0 1440 170" preserveAspectRatio="none">
+        <path fill="#6c7d95" d="M0 170 L0 120 C160 100 260 130 420 105 C580 80 660 120 820 95 C960 74 1060 112 1200 86 C1300 68 1380 95 1440 84 L1440 170 Z"/>
+    </svg>
+</div>
+
+<!-- 光柱层：传输的光在这里垂落 / 升起 -->
+<div class="beam-layer" id="beamLayer" aria-hidden="true"></div>
+
+<div class="page">
+
+    <!-- 山巅瞭望台铭牌 -->
+    <header class="plaque">
+        <h1>消息快传</h1>
+        <p class="plaque-sub">浪漫主义云海</p>
+        <div class="plaque-line"></div>
+        <div class="plaque-meta">
+            <p><i class="dot" aria-hidden="true"></i>198.51.100.7 · 在线</p>
+            <p>磁盘剩余 370 GB</p>
+            <p>当前用户 qy</p>
+        </div>
+        <span class="seal" aria-hidden="true">云海</span>
+    </header>
+
+    <main class="cols">
+
+        <!-- 剪切板 -->
+        <section class="panel clipboard isle">
+            <div class="sec-head">
+                <h2>剪切板</h2>
+                <span class="sec-sub">多端互发的只言片语</span>
+            </div>
+            <div id="notes">
+                <article class="note">
+                    <div class="note-head"><span>用户 · 台式机</span><span>14:32</span></div>
+                    <pre class="note-body">server {
+    listen 8080;
+    client_max_body_size 30G;
+    proxy_request_buffering off;
+}</pre>
+                    <div class="note-foot"><button class="word-btn" onclick="copyNote(this)">复制</button></div>
+                </article>
+                <article class="note">
+                    <div class="note-head"><span>dad · 笔记本</span><span>13:05</span></div>
+                    <pre class="note-body">下载直链（内网）：
+http&#58;//198.51.100.7:5000/f/8xk3n2</pre>
+                    <div class="note-foot"><button class="word-btn" onclick="copyNote(this)">复制</button></div>
+                </article>
+                <article class="note">
+                    <div class="note-head"><span>momo · 手机</span><span>12:47</span></div>
+                    <p class="note-body">晚上吃火锅，材料我都买好了，六点半开锅。</p>
+                    <div class="note-foot"><button class="word-btn" onclick="copyNote(this)">复制</button></div>
+                </article>
+                <article class="note">
+                    <div class="note-head"><span>用户 · 手机</span><span>昨日 23:58</span></div>
+                    <p class="note-body">毕业设计答辩改到 5 月 20 日上午了，PPT 用文件库里 report-final-v3 那份，别用旧的。</p>
+                    <div class="note-foot"><button class="word-btn" onclick="copyNote(this)">复制</button></div>
+                </article>
+            </div>
+            <div class="send-row">
+                <input id="noteInput" aria-label="新剪切板内容" placeholder="写一句，送往云海彼端" onkeydown="if(event.key==='Enter')sendNote()">
+                <button class="demo-btn" onclick="sendNote()">发送</button>
+            </div>
+        </section>
+
+        <!-- 文件库：群岛 -->
+        <section class="files">
+            <div class="sec-head">
+                <h2>文件库</h2>
+                <span class="sec-sub">云上群岛 · 八座</span>
+            </div>
+            <div class="f-grid">
+                <article class="f-card isle">
+                    <div class="f-top">
+                        <span class="f-ext">sql.gz</span>
+                        <span class="f-size">38.4GB</span>
+                    </div>
+                    <div class="f-name">postgres-dump.sql.gz</div>
+                    <div class="f-bottom">
+                        <span class="f-time">昨日 23:41</span>
+                        <span class="f-acts">
+                            <button class="word-btn" onclick="fileAct('下载','postgres-dump.sql.gz')">下载</button>
+                            <button class="word-btn danger" onclick="fileAct('删除','postgres-dump.sql.gz')">删除</button>
+                        </span>
+                    </div>
+                </article>
+                <article class="f-card isle">
+                    <div class="f-top">
+                        <span class="f-ext">mkv</span>
+                        <span class="f-size">21.7GB</span>
+                    </div>
+                    <div class="f-name">家庭录像2026春节.mkv</div>
+                    <div class="f-bottom">
+                        <span class="f-time">03-12</span>
+                        <span class="f-acts">
+                            <button class="word-btn" onclick="fileAct('下载','家庭录像2026春节.mkv')">下载</button>
+                            <button class="word-btn danger" onclick="fileAct('删除','家庭录像2026春节.mkv')">删除</button>
+                        </span>
+                    </div>
+                </article>
+                <article class="f-card isle">
+                    <div class="f-top">
+                        <span class="f-ext">pdf</span>
+                        <span class="f-size">12.4MB</span>
+                    </div>
+                    <div class="f-name">report-final-v3.pdf</div>
+                    <div class="f-bottom">
+                        <span class="f-time">今天 09:15</span>
+                        <span class="f-acts">
+                            <button class="word-btn" onclick="fileAct('下载','report-final-v3.pdf')">下载</button>
+                            <button class="word-btn danger" onclick="fileAct('删除','report-final-v3.pdf')">删除</button>
+                        </span>
+                    </div>
+                </article>
+                <article class="f-card isle">
+                    <div class="f-top">
+                        <span class="f-ext">zip</span>
+                        <span class="f-size">842MB</span>
+                    </div>
+                    <div class="f-name">壁纸包.zip</div>
+                    <div class="f-bottom">
+                        <span class="f-time">09-08</span>
+                        <span class="f-acts">
+                            <button class="word-btn" onclick="fileAct('下载','壁纸包.zip')">下载</button>
+                            <button class="word-btn danger" onclick="fileAct('删除','壁纸包.zip')">删除</button>
+                        </span>
+                    </div>
+                </article>
+                <article class="f-card isle">
+                    <div class="f-top">
+                        <span class="f-ext">pptx</span>
+                        <span class="f-size">36MB</span>
+                    </div>
+                    <div class="f-name">毕业设计.pptx</div>
+                    <div class="f-bottom">
+                        <span class="f-time">05-18</span>
+                        <span class="f-acts">
+                            <button class="word-btn" onclick="fileAct('下载','毕业设计.pptx')">下载</button>
+                            <button class="word-btn danger" onclick="fileAct('删除','毕业设计.pptx')">删除</button>
+                        </span>
+                    </div>
+                </article>
+                <article class="f-card isle">
+                    <div class="f-top">
+                        <span class="f-ext">flac</span>
+                        <span class="f-size">5.8GB</span>
+                    </div>
+                    <div class="f-name">歌曲合集.flac</div>
+                    <div class="f-bottom">
+                        <span class="f-time">07-02</span>
+                        <span class="f-acts">
+                            <button class="word-btn" onclick="fileAct('下载','歌曲合集.flac')">下载</button>
+                            <button class="word-btn danger" onclick="fileAct('删除','歌曲合集.flac')">删除</button>
+                        </span>
+                    </div>
+                </article>
+                <article class="f-card isle">
+                    <div class="f-top">
+                        <span class="f-ext">tar</span>
+                        <span class="f-size">2.1GB</span>
+                    </div>
+                    <div class="f-name">node_modules.tar</div>
+                    <div class="f-bottom">
+                        <span class="f-time">今天 02:03</span>
+                        <span class="f-acts">
+                            <button class="word-btn" onclick="fileAct('下载','node_modules.tar')">下载</button>
+                            <button class="word-btn danger" onclick="fileAct('删除','node_modules.tar')">删除</button>
+                        </span>
+                    </div>
+                </article>
+                <article class="f-card isle">
+                    <div class="f-top">
+                        <span class="f-ext">png</span>
+                        <span class="f-size">4.2MB</span>
+                    </div>
+                    <div class="f-name">证件扫描.png</div>
+                    <div class="f-bottom">
+                        <span class="f-time">2025-11-30</span>
+                        <span class="f-acts">
+                            <button class="word-btn" onclick="fileAct('下载','证件扫描.png')">下载</button>
+                            <button class="word-btn danger" onclick="fileAct('删除','证件扫描.png')">删除</button>
+                        </span>
+                    </div>
+                </article>
+            </div>
+        </section>
+    </main>
+
+    <!-- 传输：光之所向 -->
+    <section class="transfers">
+        <div class="sec-head">
+            <h2>传输</h2>
+            <span class="sec-sub">光垂落，是上传；光收拢，是下载</span>
+            <button class="demo-btn" id="demoBtn" onclick="demoTransfer()">演示传输</button>
+        </div>
+        <div class="tr-row" id="trRow"></div>
+    </section>
+
+    <footer class="colophon">
+        <p class="colo-poem">云在山巅，光在途中</p>
+        <p>仅限可信局域网 · 静态设计稿，未接后端</p>
+    </footer>
+</div>
+
+<div id="toast" role="status"></div>
+
+<script>
+    // ============ 小工具 ============
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+    var toastTimer = null;
+    function toast(msg) {
+        var t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2200);
+    }
+    // file:// 与局域网 http 下都没有可靠的 navigator.clipboard，用临时输入框 + execCommand 兜底
+    function copyText(text) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
+        document.body.appendChild(ta);
+        ta.select();
+        var ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+        document.body.removeChild(ta);
+        return ok;
+    }
+    function copyNote(btn) {
+        var body = btn.closest('.note').querySelector('.note-body');
+        var ok = copyText(body.textContent);
+        btn.textContent = ok ? '已复制' : '复制失败';
+        setTimeout(function () { btn.textContent = '复制'; }, 1500);
+    }
+    function fileAct(act, name) {
+        toast('静态演示：「' + name + '」的' + act + '操作未连接后端');
+    }
+    function sendNote() {
+        var input = document.getElementById('noteInput');
+        var v = input.value.trim();
+        if (!v) { toast('先写点什么，再送向云海'); return; }
+        var art = document.createElement('article');
+        art.className = 'note';
+        art.innerHTML =
+            '<div class="note-head"><span>用户 · 本机</span><span>刚刚</span></div>' +
+            '<p class="note-body">' + escapeHtml(v) + '</p>' +
+            '<div class="note-foot"><button class="word-btn" onclick="copyNote(this)">复制</button></div>';
+        var box = document.getElementById('notes');
+        box.insertBefore(art, box.firstChild);
+        input.value = '';
+        toast('已送上云海');
+    }
+
+    // ============ 传输系统（假数据 + 光柱） ============
+    var transfers = [];
+    var beamLayer = document.getElementById('beamLayer');
+    var trRow = document.getElementById('trRow');
+
+    // 光柱几何：从视口顶端垂向卡片，长度 = 进度 × 全程距离
+    function layoutBeam(t) {
+        if (!t.beam.isConnected) return;
+        var r = t.card.getBoundingClientRect();
+        var W = 160;
+        t.beam.style.left = (r.left + r.width / 2 - W / 2) + 'px';
+        var full = Math.max(0, r.top - 2);
+        var h = Math.min(full, full * t.progress / 100);
+        t.beam.style.height = h + 'px';
+        t.beam.style.opacity = (0.45 + 0.4 * Math.min(1, t.progress / 100)).toFixed(2);
+    }
+    function layoutAll() { transfers.forEach(layoutBeam); }
+    window.addEventListener('scroll', layoutAll, { passive: true });
+    window.addEventListener('resize', layoutAll);
+
+    function addTransfer(cfg) {
+        var card = document.createElement('div');
+        card.className = 'isle tr-card' + (cfg.kind === 'down' ? ' tr-down' : '');
+        card.innerHTML =
+            '<div class="tr-top"><span class="tr-dir">' + cfg.dir + '</span>' +
+            '<span class="tr-size">' + cfg.size + '</span></div>' +
+            '<div class="tr-name">' + escapeHtml(cfg.name) + '</div>' +
+            '<div class="tr-fig"><span class="tr-num"><b>' + cfg.progress.toFixed(1) + '</b><em>%</em></span>' +
+            '<span class="tr-speed">' + cfg.speed.toFixed(1) + ' MB/s</span></div>' +
+            '<div class="ridge"><i></i></div>';
+        trRow.appendChild(card);
+
+        var beam = document.createElement('div');
+        beam.className = 'beam ' + (cfg.kind === 'up' ? 'beam-down' : 'beam-up');
+        beam.innerHTML = '<div class="beam-flow"></div>';
+        beamLayer.appendChild(beam);
+
+        var t = {
+            kind: cfg.kind, dir: cfg.dir, name: cfg.name, size: cfg.size,
+            progress: cfg.progress, speed: cfg.speed,
+            speedMin: cfg.speedMin, speedMax: cfg.speedMax,
+            rate: cfg.rate, doneText: cfg.doneText,
+            demo: !!cfg.demo, onDone: cfg.onDone || null,
+            card: card, beam: beam, done: false, speedTarget: cfg.speed
+        };
+        transfers.push(t);
+        layoutAll();
+        return t;
+    }
+
+    function finish(t) {
+        t.done = true;
+        t.progress = 100;
+        t.card.querySelector('.tr-num b').textContent = '100.0';
+        t.card.querySelector('.tr-speed').textContent = t.doneText;
+        t.card.querySelector('.ridge i').style.width = '100%';
+        t.beam.classList.add('done');
+        setTimeout(function () { t.beam.remove(); }, 1100);
+        t.card.classList.add('arrive');
+        setTimeout(function () {
+            t.card.classList.remove('arrive');
+            t.card.classList.add('settled');
+        }, 1500);
+        if (t.onDone) t.onDone();
+    }
+
+    function tick() {
+        for (var i = 0; i < transfers.length; i++) {
+            var t = transfers[i];
+            if (t.done) continue;
+            // 速度随机走动（缓慢趋近随机目标，避免数字跳变）
+            if (Math.random() < 0.35) {
+                t.speedTarget = t.speedMin + Math.random() * (t.speedMax - t.speedMin);
+            }
+            t.speed += (t.speedTarget - t.speed) * 0.3;
+            if (t.demo) t.rate = t.speed / 10.4; // 演示：约十秒走完一程
+            t.progress += t.rate * 0.6;
+            if (t.progress >= 100) { finish(t); continue; }
+            t.card.querySelector('.tr-num b').textContent = t.progress.toFixed(1);
+            t.card.querySelector('.tr-speed').textContent = t.speed.toFixed(1) + ' MB/s';
+            t.card.querySelector('.ridge i').style.width = t.progress + '%';
+            layoutBeam(t);
+        }
+    }
+
+    // ============ 演示传输 ============
+    var demoBusy = false;
+    function demoTransfer() {
+        if (demoBusy) { toast('演示还在进行，且看这道光'); return; }
+        demoBusy = true;
+        document.getElementById('demoBtn').classList.add('busy');
+        toast('一道晨光落下，看它抵达岛巅');
+        var t = addTransfer({
+            kind: 'up',
+            dir: '演示 · 一次性光柱',
+            name: '晨光演示样本.dat',
+            size: '4.7GB',
+            progress: 0, speed: 104.0,
+            speedMin: 82, speedMax: 138,
+            rate: 10, demo: true,
+            doneText: '演示完成 · 光落于岛'
+        });
+        // 完成后的收尾：演示卡停几秒后乘风散去
+        t.onDone = function () {
+            setTimeout(function () {
+                t.card.classList.add('fade');
+                setTimeout(function () { t.card.remove(); }, 900);
+                demoBusy = false;
+                document.getElementById('demoBtn').classList.remove('busy');
+                toast('演示结束 · 光柱收束，卡片亮起');
+            }, 4200);
+        };
+    }
+
+    // ============ 初始假数据：两条进行中的传输 ============
+    addTransfer({
+        kind: 'up',
+        dir: '上传 · 自台式机向云海',
+        name: '家庭录像2026春节.mkv',
+        size: '21.7GB',
+        progress: 12.4, speed: 112.6,
+        speedMin: 98, speedMax: 126,
+        rate: 0.045,
+        doneText: '已抵达 · 光落于岛'
+    });
+    addTransfer({
+        kind: 'down',
+        dir: '下载 · 自云海向笔记本',
+        name: 'postgres-dump.sql.gz',
+        size: '38.4GB',
+        progress: 68.2, speed: 86.2,
+        speedMin: 72, speedMax: 102,
+        rate: 0.03,
+        doneText: '已收拢 · 光归于海'
+    });
+
+    setInterval(tick, 600);
+    window.addEventListener('load', layoutAll);
+</script>
+</body>
+</html>

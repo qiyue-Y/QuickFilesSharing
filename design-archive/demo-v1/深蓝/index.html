@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QuickFilesSharing · 界面设计演示</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235ea0ff'/><path d='M16.5 15.5v2a1.5 1.5 0 0 1-1.5 1.5H9a1.5 1.5 0 0 1-1.5-1.5v-2M12 15V5m0 0l-4 4m4-4l4 4' stroke='%23fff' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<!--
+  设计演示页(纯静态,不请求后端)。
+  设计规则:
+  - 深色主题锁定,单一 accent 蓝 #5ea0ff;绿/红/黄只作为状态色,不做装饰
+  - 圆角体系:卡片 12 / 按钮·输入 8 / 小徽章 6 / 进度条 pill
+  - 数字、哈希、命令一律等宽字体 + tabular-nums
+  - 图标为 24 网格描边图形(stroke 1.75),由基础图元拼成,零外部依赖
+  - 所有数据为演示模拟:磁盘数(101.0/57.2 GB)、校验速度(43 MB/s)、局域网速度(约 112.6 MB/s)
+-->
+<style>
+    :root {
+        --bg: #0b0c0f;
+        --surface: #15171b;
+        --surface-2: #1c1f25;
+        --surface-3: #24282f;
+        --inset: #0e1013;
+        --line: #262a31;
+        --line-2: #333842;
+        --text: #e7eaee;
+        --text-2: #9ba3ad;
+        --text-3: #71798a;
+        --accent: #5ea0ff;
+        --accent-dim: rgba(94, 160, 255, .13);
+        --ok: #4ade80;
+        --warn: #fbbf24;
+        --danger: #f87171;
+        --mono: "JetBrains Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+        --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    html { color-scheme: dark; }
+    body {
+        margin: 0;
+        font-family: var(--sans);
+        font-size: 14px;
+        line-height: 1.55;
+        color: var(--text);
+        background: var(--bg);
+        -webkit-font-smoothing: antialiased;
+        min-height: 100vh;
+    }
+    ::selection { background: rgba(94, 160, 255, .3); }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    svg.ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+    .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+    .muted { color: var(--text-2); }
+
+    /* ===== 顶栏 ===== */
+    .topbar {
+        position: sticky; top: 0; z-index: 40;
+        display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        height: 60px; padding: 0 20px;
+        max-width: 1180px; margin: 0 auto;
+        border-bottom: 1px solid var(--line);
+        background: rgba(11, 12, 15, .86);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+    @media (min-width: 1220px) { .topbar { padding: 0; } }
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .brand-mark {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 30px; height: 30px; border-radius: 8px;
+        background: var(--accent); color: #0b0c0f;
+    }
+    .brand-mark svg.ic { width: 17px; height: 17px; stroke-width: 2; }
+    .brand-text { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+    .brand-text strong { font-size: 14px; font-weight: 650; letter-spacing: .01em; }
+    .brand-text span { font-size: 11.5px; color: var(--text-2); }
+    .topbar-actions { display: flex; align-items: center; gap: 8px; }
+    .chip {
+        display: inline-flex; align-items: center; gap: 7px;
+        height: 32px; padding: 0 11px;
+        background: var(--surface-2); border: 1px solid var(--line);
+        border-radius: 8px; color: var(--text-2);
+        font-size: 12.5px; cursor: pointer;
+        transition: background .15s, color .15s, border-color .15s;
+    }
+    .chip:hover { background: var(--surface-3); color: var(--text); }
+    .chip .mono { font-size: 12px; color: inherit; }
+    .avatar {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 20px; height: 20px; border-radius: 50%;
+        background: var(--accent); color: #0b0c0f;
+        font-family: var(--mono); font-size: 12px; font-weight: 700;
+    }
+    .user-wrap { position: relative; }
+    .user-chip { color: var(--text); }
+    .popover {
+        position: absolute; right: 0; top: calc(100% + 8px); z-index: 50;
+        min-width: 228px; padding: 6px;
+        background: var(--surface-2); border: 1px solid var(--line-2); border-radius: 10px;
+        box-shadow: 0 16px 40px -12px rgba(0, 0, 0, .55);
+    }
+    .popover button {
+        display: flex; align-items: center; gap: 8px; width: 100%;
+        padding: 8px 10px; border: none; border-radius: 6px;
+        background: none; color: var(--text); font-size: 13px; text-align: left; cursor: pointer;
+    }
+    .popover button:hover { background: var(--surface-3); }
+    .popover-note { margin: 6px 10px 4px; font-size: 11.5px; color: var(--text-3); line-height: 1.5; }
+
+    /* ===== 演示提示条 ===== */
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 0 20px; }
+    .demo-note {
+        display: flex; align-items: center; gap: 9px;
+        margin-top: 14px; padding: 8px 12px;
+        background: var(--accent-dim); border: 1px solid var(--line); border-radius: 8px;
+        font-size: 12.5px; color: var(--text-2);
+    }
+    .demo-note svg.ic { color: var(--accent); }
+    .demo-note span { flex: 1; min-width: 0; }
+
+    /* ===== 主布局 ===== */
+    .layout {
+        display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px;
+        align-items: start; margin-top: 14px;
+    }
+    .card { min-width: 0; }
+    .card {
+        background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+        padding: 18px;
+    }
+    @media (prefers-reduced-motion: no-preference) {
+        .card { animation: rise .45s cubic-bezier(.16, 1, .3, 1) both; }
+        .card + .card { animation-delay: .07s; }
+        @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    }
+    #cardClipboard { position: sticky; top: 74px; }
+    .card.loading { opacity: .55; pointer-events: none; }
+    .card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+    .card-head h2 {
+        display: flex; align-items: center; gap: 8px; margin: 0;
+        font-size: 14px; font-weight: 650;
+    }
+    .card-head h2 svg.ic { color: var(--text-2); }
+    .card-head-side { display: flex; align-items: center; gap: 10px; }
+    .card-head-side .mono { font-size: 12px; }
+    .icon-btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 30px; height: 30px; padding: 0;
+        background: none; border: none; border-radius: 8px;
+        color: var(--text-2); cursor: pointer;
+        transition: background .15s, color .15s;
+    }
+    .icon-btn:hover { background: var(--surface-2); color: var(--text); }
+    .icon-btn:active { transform: translateY(1px); }
+
+    /* ===== 按钮 ===== */
+    .btn {
+        display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+        height: 34px; padding: 0 14px;
+        background: var(--surface-2); color: var(--text);
+        border: 1px solid var(--line); border-radius: 8px;
+        font-family: inherit; font-size: 13px; font-weight: 600;
+        cursor: pointer; white-space: nowrap;
+        transition: background .15s, border-color .15s, color .15s;
+    }
+    .btn:hover { background: var(--surface-3); border-color: var(--line-2); }
+    .btn:active { transform: translateY(1px); }
+    .btn-primary { background: #e7eaee; border-color: #e7eaee; color: #14161a; }
+    .btn-primary:hover { background: #ffffff; border-color: #ffffff; }
+    .btn-danger { background: #b91c1c; border-color: #b91c1c; color: #fff; }
+    .btn-danger:hover { background: #dc2626; border-color: #dc2626; }
+    .btn-danger-ghost { color: var(--danger); }
+    .btn-danger-ghost:hover { background: rgba(248, 113, 113, .1); border-color: rgba(248, 113, 113, .35); }
+    .btn-sm { height: 28px; padding: 0 10px; font-size: 12px; border-radius: 6px; }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
+    /* ===== 剪切板 ===== */
+    #clipText {
+        width: 100%; height: 330px; padding: 13px 14px; resize: vertical;
+        background: var(--inset); color: var(--text);
+        border: 1px solid var(--line); border-radius: 8px;
+        font-family: var(--mono); font-size: 13.5px; line-height: 1.65;
+        outline: none; transition: border-color .15s, box-shadow .15s;
+    }
+    #clipText:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+    .card-foot {
+        display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        margin-top: 12px; flex-wrap: wrap;
+    }
+    .card-foot .mono { font-size: 12px; }
+
+    /* ===== 文件卡 ===== */
+    .storage { margin-bottom: 14px; }
+    .storage-track { height: 6px; border-radius: 999px; background: var(--inset); border: 1px solid var(--line); overflow: hidden; }
+    .storage-fill { height: 100%; width: 43.4%; border-radius: 999px; background: var(--accent); opacity: .75; transition: width .3s; }
+    .storage-fill.low { background: var(--danger); opacity: 1; }
+    .storage-meta { display: flex; justify-content: space-between; margin-top: 6px; font-size: 11.5px; color: var(--text-2); }
+    .dropzone {
+        display: flex; align-items: center; gap: 12px;
+        padding: 14px 16px; margin-bottom: 14px;
+        border: 1.5px dashed var(--line-2); border-radius: 8px;
+        color: var(--text-2); cursor: pointer;
+        transition: border-color .15s, background .15s, color .15s;
+    }
+    .dropzone:hover, .dropzone.over { border-color: var(--accent); background: var(--accent-dim); color: var(--text); }
+    .dropzone svg.ic { width: 20px; height: 20px; }
+    .dz-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .dz-text strong { font-size: 13px; font-weight: 600; color: inherit; }
+    .dz-text span { font-size: 12px; color: var(--text-2); }
+    .dropzone.over .dz-text span { color: var(--text-2); }
+
+    /* 上传队列 */
+    .q-item { display: flex; align-items: center; gap: 12px; padding: 10px 8px; border-radius: 8px; background: var(--surface-2); margin-bottom: 8px; }
+    .q-item.leaving { opacity: 0; transform: translateY(-4px); transition: opacity .3s, transform .3s; }
+    .q-main { flex: 1; min-width: 0; }
+    .q-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+    .q-name { font-size: 13px; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .q-pct { font-size: 12px; color: var(--text-2); flex-shrink: 0; }
+    .bar { height: 6px; border-radius: 999px; background: var(--inset); overflow: hidden; }
+    .bar-fill { height: 100%; width: 0%; border-radius: 999px; background: var(--accent); transition: width .25s linear; }
+    .q-stats { display: flex; justify-content: space-between; gap: 10px; margin-top: 6px; font-size: 11.5px; color: var(--text-2); }
+
+    /* 文件列表 */
+    .badge {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 38px; height: 38px; flex-shrink: 0;
+        background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
+        font-family: var(--mono); font-size: 10.5px; font-weight: 600;
+        letter-spacing: .04em; color: var(--text-2);
+    }
+    .badge-sm { width: 34px; height: 34px; font-size: 10px; }
+    .file-list { margin: 0 -6px; padding: 0 6px; }
+    .f-row {
+        display: flex; align-items: center; gap: 12px;
+        padding: 11px 8px; border-radius: 8px; cursor: pointer;
+        transition: background .15s;
+    }
+    .f-row + .f-row { border-top: 1px solid rgba(38, 42, 49, .7); }
+    .f-row:hover { background: var(--surface-2); }
+    .f-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+    .f-name { font-size: 13.5px; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .f-meta { font-size: 11.5px; color: var(--text-2); }
+    .hash-chip {
+        align-self: flex-start;
+        max-width: 100%; padding: 2px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        background: var(--inset); border: 1px solid var(--line); border-radius: 6px;
+        font-family: var(--mono); font-size: 11px; color: var(--text-2);
+        cursor: pointer; transition: color .15s, border-color .15s;
+    }
+    .hash-chip:hover { color: var(--accent); border-color: rgba(94, 160, 255, .4); }
+    .hash-chip.none { border-style: dashed; color: var(--warn); background: none; }
+    .f-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .f-actions .icon-btn:hover.danger { color: var(--danger); }
+    .empty { padding: 40px 16px; text-align: center; color: var(--text-2); font-size: 13px; }
+    .empty svg.ic { width: 26px; height: 26px; color: var(--text-3); margin-bottom: 8px; }
+    .empty p { margin: 0 0 2px; }
+    .empty span { font-size: 12px; color: var(--text-3); }
+
+    /* ===== 页脚 ===== */
+    .foot {
+        display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        max-width: 1180px; margin: 0 auto; padding: 20px 20px 30px;
+        font-size: 12px; color: var(--text-2);
+    }
+    .foot .mono { font-size: 11.5px; color: var(--text-3); }
+
+    /* ===== 弹窗 ===== */
+    .mask {
+        position: fixed; inset: 0; z-index: 60;
+        display: flex; align-items: center; justify-content: center;
+        padding: 20px; background: rgba(5, 6, 8, .62);
+        backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    }
+    .modal {
+        width: min(660px, 100%); max-height: 86vh; overflow-y: auto;
+        background: var(--surface); border: 1px solid var(--line-2); border-radius: 12px;
+        padding: 20px; box-shadow: 0 24px 64px -16px rgba(0, 0, 0, .6);
+        outline: none;
+    }
+    .modal-sm { width: min(420px, 100%); }
+    @media (prefers-reduced-motion: no-preference) {
+        .mask .modal { animation: pop .18s cubic-bezier(.16, 1, .3, 1); }
+        @keyframes pop { from { opacity: 0; transform: scale(.98) translateY(4px); } }
+    }
+    .modal-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+    .modal-head > div { flex: 1; min-width: 0; }
+    .modal-head h3 { margin: 0 0 2px; font-size: 14.5px; font-weight: 650; word-break: break-all; }
+    .modal-head .mono { font-size: 12px; }
+    .fm-section { padding-top: 15px; margin-top: 15px; border-top: 1px solid var(--line); }
+    .fm-section > label { display: block; font-size: 13px; font-weight: 650; margin-bottom: 7px; }
+    .hint { margin: 0 0 9px; font-size: 12px; color: var(--text-2); line-height: 1.65; }
+    .hash-row { display: flex; gap: 8px; align-items: stretch; }
+    .hash-row code {
+        flex: 1; min-width: 0; padding: 9px 10px;
+        background: var(--inset); border: 1px solid var(--line); border-radius: 8px;
+        font-family: var(--mono); font-size: 12px; line-height: 1.6;
+        word-break: break-all; color: var(--text);
+    }
+    .cmd-list { display: flex; flex-direction: column; gap: 7px; }
+    .cmd { padding: 8px 10px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; }
+    .cmd-os { font-size: 11.5px; color: var(--text-2); margin-bottom: 5px; }
+    .cmd-line { display: flex; align-items: flex-start; gap: 8px; }
+    .cmd-line code {
+        flex: 1; min-width: 0; padding: 6px 8px;
+        background: var(--inset); border: 1px solid var(--line); border-radius: 6px;
+        font-family: var(--mono); font-size: 11.5px; line-height: 1.55;
+        word-break: break-all; color: var(--text);
+    }
+    .share-row { display: flex; gap: 14px; align-items: flex-start; }
+    .share-info { flex: 1; min-width: 0; }
+    .share-link {
+        padding: 8px 10px; margin-bottom: 8px;
+        background: var(--inset); border: 1px solid var(--line); border-radius: 8px;
+        font-size: 11.5px; word-break: break-all; color: var(--text);
+    }
+    .qr { width: 96px; flex-shrink: 0; padding: 5px; background: #fff; border-radius: 8px; }
+    .qr svg { display: block; width: 100%; height: auto; }
+    .verify-drop {
+        padding: 16px; text-align: center;
+        border: 1.5px dashed var(--line-2); border-radius: 8px;
+        color: var(--text-2); font-size: 12.5px; cursor: pointer;
+        transition: border-color .15s, background .15s;
+    }
+    .verify-drop:hover, .verify-drop.over { border-color: var(--accent); background: var(--accent-dim); }
+    .verify-progress { margin-top: 10px; }
+    .verify-progress p { margin: 6px 0 0; font-size: 11.5px; color: var(--text-2); }
+    .verify-result {
+        display: flex; align-items: center; gap: 8px; margin-top: 10px;
+        padding: 9px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600;
+    }
+    .verify-result.ok { background: rgba(74, 222, 128, .1); color: var(--ok); }
+    .modal-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    .modal-foot .grow { flex: 1; }
+    .input {
+        width: 100%; padding: 9px 11px;
+        background: var(--inset); border: 1px solid var(--line); border-radius: 8px;
+        color: var(--text); font-family: var(--mono); font-size: 13px; outline: none;
+        transition: border-color .15s, box-shadow .15s;
+    }
+    .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+    .check { display: flex; align-items: center; gap: 7px; margin-top: 10px; font-size: 12.5px; color: var(--text-2); cursor: pointer; user-select: none; }
+    .check input { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+
+    /* ===== Toast ===== */
+    .toasts { position: fixed; top: 16px; right: 16px; z-index: 80; display: flex; flex-direction: column; gap: 8px; width: min(340px, calc(100vw - 32px)); }
+    .toast {
+        display: flex; align-items: flex-start; gap: 9px;
+        padding: 10px 12px;
+        background: var(--surface-3); border: 1px solid var(--line-2); border-radius: 8px;
+        box-shadow: 0 12px 32px -8px rgba(0, 0, 0, .5);
+        font-size: 12.5px; line-height: 1.5;
+    }
+    .toast svg.ic { margin-top: 1px; }
+    .toast.ok svg.ic { color: var(--ok); }
+    .toast.warn svg.ic { color: var(--warn); }
+    .toast.err svg.ic { color: var(--danger); }
+    @media (prefers-reduced-motion: no-preference) {
+        .toast { animation: slide-in .25s cubic-bezier(.16, 1, .3, 1); }
+        @keyframes slide-in { from { opacity: 0; transform: translateX(14px); } }
+        .toast.leaving { opacity: 0; transform: translateX(14px); transition: opacity .2s, transform .2s; }
+    }
+
+    /* ===== 响应式 ===== */
+    @media (max-width: 980px) {
+        .layout { grid-template-columns: minmax(0, 1fr); }
+        #cardClipboard { position: static; }
+        #clipText { height: 240px; }
+    }
+    @media (max-width: 680px) {
+        .addr-chip span { display: none; }
+        .brand-text span { display: none; }
+        .share-row { flex-direction: column-reverse; }
+        .qr { align-self: center; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        * { animation: none !important; transition: none !important; }
+    }
+</style>
+</head>
+<body>
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
+    <symbol id="i-check-circle" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></symbol>
+    <symbol id="i-clipboard" viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+    <symbol id="i-inbox" viewBox="0 0 24 24"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
+</svg>
+
+<header class="topbar">
+    <div class="brand">
+        <span class="brand-mark"><svg class="ic"><use href="#i-upload"/></svg></span>
+        <div class="brand-text">
+            <strong>QuickFilesSharing</strong>
+            <span>局域网剪切板 · 大文件快传</span>
+        </div>
+    </div>
+    <div class="topbar-actions">
+        <button class="chip addr-chip" id="addrChip" title="点击复制完整地址">
+            <svg class="ic"><use href="#i-link"/></svg>
+            <span class="mono">198.51.100.7:5000</span>
+        </button>
+        <div class="user-wrap">
+            <button class="chip user-chip" id="userChip" aria-haspopup="menu">
+                <span class="avatar" id="userAvatar">q</span>
+                <span id="userName">用户</span>
+                <svg class="ic" style="width:13px;height:13px"><use href="#i-chevron"/></svg>
+            </button>
+            <div class="popover" id="userMenu" hidden role="menu">
+                <button id="menuSwitch" role="menuitem"><svg class="ic"><use href="#i-user"/></svg>切换用户</button>
+                <button id="menuForget" role="menuitem"><svg class="ic"><use href="#i-x"/></svg>清除记住的用户</button>
+                <p class="popover-note">用户名只用来隔离各自的数据,没有密码。</p>
+            </div>
+        </div>
+    </div>
+</header>
+
+<div class="wrap">
+    <div class="demo-note" id="demoNote">
+        <svg class="ic"><use href="#i-info"/></svg>
+        <span>静态设计演示:数据全部为本地模拟,不请求后端;上传队列、文件校验、弹窗都可以点。</span>
+        <button class="icon-btn" id="demoNoteClose" aria-label="关闭提示"><svg class="ic"><use href="#i-x"/></svg></button>
+    </div>
+</div>
+
+<main class="wrap layout">
+
+    <!-- 剪切板 -->
+    <section class="card" id="cardClipboard" aria-label="剪切板">
+        <div class="card-head">
+            <h2><svg class="ic"><use href="#i-clipboard"/></svg>剪切板</h2>
+            <div class="card-head-side">
+                <span class="mono muted" id="clipSavedAt">上次保存 14:02</span>
+                <button class="icon-btn" id="clipRefresh" aria-label="刷新剪切板" title="刷新"><svg class="ic"><use href="#i-refresh"/></svg></button>
+            </div>
+        </div>
+        <textarea id="clipText" aria-label="剪切板内容" spellcheck="false">周五验收会纪要
+
+1. 三号库传感器固件统一升到 v2.4.1,先在一台网关上灰度观察一周
+2. 备份策略改为每日 02:00 增量 + 周日 03:00 全量
+3. 采购单已提交,链接: https://example.com/order/22141 (仅内网可达)
+
+驱动和工具包我传到右边文件列表了,自行下载。</textarea>
+        <div class="card-foot">
+            <span class="mono muted" id="clipCount">0 字符</span>
+            <div class="btn-row">
+                <button class="btn" id="clipCopy"><svg class="ic"><use href="#i-copy"/></svg>复制</button>
+                <button class="btn btn-danger-ghost" id="clipClear">清空</button>
+                <button class="btn btn-primary" id="clipSave">保存</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- 文件 -->
+    <section class="card" id="cardFiles" aria-label="文件">
+        <div class="card-head">
+            <h2><svg class="ic"><use href="#i-folder"/></svg>文件</h2>
+            <div class="card-head-side">
+                <span class="mono muted" id="storageText">可用 57.2 GB</span>
+                <button class="icon-btn" id="filesRefresh" aria-label="刷新文件列表" title="刷新"><svg class="ic"><use href="#i-refresh"/></svg></button>
+            </div>
+        </div>
+        <div class="storage" title="服务器磁盘(files/ 所在盘)">
+            <div class="storage-track"><div class="storage-fill" id="storageFill"></div></div>
+            <div class="storage-meta mono"><span>已用 43.8 GB</span><span>总容量 101.0 GB</span></div>
+        </div>
+        <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="选择或拖入要上传的文件">
+            <svg class="ic"><use href="#i-upload"/></svg>
+            <div class="dz-text">
+                <strong>拖拽文件到此处,或点击选择</strong>
+                <span>单文件最大 30 GB,多文件自动排队,空间不足会在上传前拦截</span>
+            </div>
+            <input type="file" id="fileInput" multiple hidden aria-label="选择要上传的文件">
+        </div>
+        <div id="queue"></div>
+        <div class="file-list" id="fileList"></div>
+        <div class="empty" id="listEmpty" hidden>
+            <svg class="ic"><use href="#i-inbox"/></svg>
+            <p>暂无文件</p>
+            <span>把文件拖到上方虚线框即可上传</span>
+        </div>
+    </section>
+
+</main>
+
+<footer class="foot">
+    <span>无鉴权服务,仅限可信局域网使用</span>
+    <span class="mono">QuickFilesSharing</span>
+</footer>
+
+<!-- 文件详情弹窗 -->
+<div class="mask" id="fileModal" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-label="文件详情" tabindex="-1" id="fileModalBox">
+        <div class="modal-head">
+            <span class="badge" id="fmBadge">FILE</span>
+            <div>
+                <h3 id="fmName">文件名</h3>
+                <p class="mono muted" id="fmMeta" style="margin:0"></p>
+            </div>
+            <button class="icon-btn" data-close aria-label="关闭"><svg class="ic"><use href="#i-x"/></svg></button>
+        </div>
+
+        <div class="fm-section" style="border-top:none;padding-top:0;margin-top:0">
+            <label>SHA-256 校验码</label>
+            <div class="hash-row">
+                <code class="mono" id="fmHash"></code>
+                <button class="btn btn-sm" id="fmHashCopy" style="align-self:center"><svg class="ic"><use href="#i-copy"/></svg>复制</button>
+            </div>
+            <p class="hint" id="fmHashNote" style="margin-top:8px">接收端下载完成后,在本地算一遍并与上面的校验码比对。</p>
+        </div>
+
+        <div class="fm-section">
+            <label>接收端本机校验</label>
+            <p class="hint">在<strong>接收端电脑</strong>执行下面的命令,输出与页面校验码对比。只看 64 位十六进制,大小写和空格不用管。</p>
+            <div class="cmd-list" id="fmVerifyCmds"></div>
+        </div>
+
+        <div class="fm-section">
+            <label>命令行下载</label>
+            <p class="hint">浏览器外流式落盘,支持断点续传,大文件推荐。演示页地址为固定值,实际以浏览器地址栏为准。</p>
+            <div class="cmd-list" id="fmDlCmds"></div>
+        </div>
+
+        <div class="fm-section">
+            <label>分享给局域网里的设备</label>
+            <div class="share-row">
+                <div class="share-info">
+                    <div class="share-link mono" id="fmLink"></div>
+                    <p class="hint">带 <code style="font-family:var(--mono)">?u=</code> 参数的直达链接,对方打开即可下载,不需要知道用户名。</p>
+                    <button class="btn btn-sm" id="fmLinkCopy"><svg class="ic"><use href="#i-copy"/></svg>复制链接</button>
+                </div>
+                <div class="qr" id="fmQr" title="二维码(示意)"></div>
+            </div>
+        </div>
+
+        <div class="fm-section">
+            <label>页面内一键校验(演示)</label>
+            <p class="hint">把下载好的文件拖进来,页面在本地计算 SHA-256 并与服务器记录自动比对,约 43 MB/s,大文件需要等待。</p>
+            <div class="verify-drop" id="verifyDrop" role="button" tabindex="0">点击选择,或把下载好的文件拖到这里</div>
+            <input type="file" id="verifyInput" hidden aria-label="选择要校验的文件">
+            <div class="verify-progress" id="verifyProg" hidden>
+                <div class="bar"><div class="bar-fill" id="verifyFill"></div></div>
+                <p class="mono" id="verifyText"></p>
+            </div>
+            <div class="verify-result ok" id="verifyOk" hidden>
+                <svg class="ic"><use href="#i-check-circle"/></svg>
+                <span>校验一致:与服务器记录的 SHA-256 相同(演示固定返回一致)</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 确认弹窗 -->
+<div class="mask" id="confirmModal" hidden>
+    <div class="modal modal-sm" role="dialog" aria-modal="true" tabindex="-1">
+        <h3 style="margin:0 0 6px;font-size:14.5px" id="cfTitle">确认</h3>
+        <p class="hint" id="cfBody" style="margin-bottom:0"></p>
+        <div class="modal-foot">
+            <button class="btn" data-close>取消</button>
+            <button class="btn btn-danger" id="cfOk">删除</button>
+        </div>
+    </div>
+</div>
+
+<!-- 切换用户弹窗 -->
+<div class="mask" id="userModal" hidden>
+    <div class="modal modal-sm" role="dialog" aria-modal="true" tabindex="-1">
+        <h3 style="margin:0 0 6px;font-size:14.5px">切换用户</h3>
+        <p class="hint">不同用户名的剪切板与文件互相隔离,互不可见。</p>
+        <input class="input" id="userInput" aria-label="用户名" value="用户" maxlength="40">
+        <label class="check"><input type="checkbox" id="userRemember" checked>记住我</label>
+        <div class="modal-foot">
+            <button class="btn" data-close>取消</button>
+            <button class="btn btn-primary" id="userOk">进入</button>
+        </div>
+    </div>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script>
+    'use strict';
+    /* ============ 工具 ============ */
+    const $ = (id) => document.getElementById(id);
+    const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+    function formatSize(b) {
+        if (b < 1024) return b + ' B';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+        if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB';
+        return (b / 1073741824).toFixed(2) + ' GB';
+    }
+    function genHash() {
+        const a = new Uint8Array(32);
+        crypto.getRandomValues(a);
+        return Array.from(a, b => b.toString(16).padStart(2, '0')).join('');
+    }
+    function nowStamp() {
+        const d = new Date(), p = (n) => String(n).padStart(2, '0');
+        return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    }
+    function copyText(text) {
+        // 与生产页一致:局域网 http 无 navigator.clipboard,用 execCommand 兜底
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
+        document.body.appendChild(ta);
+        ta.select();
+        let ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+        document.body.removeChild(ta);
+        return ok;
+    }
+    function typeBadge(name) {
+        const ext = (name.split('.').pop() || '').toLowerCase();
+        return (ext || 'file').slice(0, 4).toUpperCase();
+    }
+
+    /* ============ Toast ============ */
+    function toast(msg, type = 'ok') {
+        const icons = { ok: 'i-check-circle', warn: 'i-alert', err: 'i-alert' };
+        const el = document.createElement('div');
+        el.className = `toast ${type}`;
+        el.innerHTML = `<svg class="ic"><use href="#${icons[type] || 'i-info'}"/></svg><span>${escapeHtml(msg)}</span>`;
+        $('toasts').appendChild(el);
+        setTimeout(() => { el.classList.add('leaving'); setTimeout(() => el.remove(), 220); }, 3200);
+    }
+
+    /* ============ 弹窗开关 ============ */
+    function openMask(id) { $(id).hidden = false; const box = $(id).querySelector('.modal'); if (box) box.focus(); }
+    function closeMask(id) {
+        $(id).hidden = true;
+        if (id === 'fileModal') stopVerify();
+    }
+    document.addEventListener('click', (e) => {
+        const closer = e.target.closest('[data-close]');
+        if (closer) { const m = closer.closest('.mask'); if (m) closeMask(m.id); return; }
+        if (e.target.classList && e.target.classList.contains('mask')) closeMask(e.target.id);
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        document.querySelectorAll('.mask:not([hidden])').forEach(m => closeMask(m.id));
+        $('userMenu').hidden = true;
+    });
+
+    /* ============ 确认弹窗 ============ */
+    let confirmCb = null;
+    function openConfirm(title, body, okText, cb) {
+        $('cfTitle').textContent = title;
+        $('cfBody').textContent = body;
+        $('cfOk').textContent = okText;
+        confirmCb = cb;
+        openMask('confirmModal');
+    }
+    $('cfOk').addEventListener('click', () => { closeMask('confirmModal'); if (confirmCb) confirmCb(); confirmCb = null; });
+
+    /* ============ 剪切板 ============ */
+    const clipText = $('clipText');
+    function updateCount() { $('clipCount').textContent = clipText.value.length + ' 字符'; }
+    clipText.addEventListener('input', updateCount);
+    updateCount();
+    $('clipSave').addEventListener('click', () => {
+        $('clipSavedAt').textContent = '上次保存 ' + nowStamp().slice(6);
+        toast('已保存(演示)');
+    });
+    $('clipCopy').addEventListener('click', () => {
+        const ok = copyText(clipText.value);
+        toast(ok ? '已复制到系统剪切板' : '复制失败,请手动选择文本', ok ? 'ok' : 'warn');
+    });
+    $('clipClear').addEventListener('click', () => {
+        openConfirm('清空剪切板', '将清空剪切板全部内容,此操作不可恢复。', '清空', () => {
+            clipText.value = ''; updateCount(); toast('已清空(演示)');
+        });
+    });
+    $('clipRefresh').addEventListener('click', () => fakeRefresh('cardClipboard', '剪切板已刷新(演示)'));
+    function fakeRefresh(cardId, msg) {
+        const card = $(cardId);
+        card.classList.add('loading');
+        setTimeout(() => { card.classList.remove('loading'); toast(msg); }, 550);
+    }
+
+    /* ============ 文件数据与列表 ============ */
+    // 演示数据:磁盘数取自实际服务器(总 101.0 GB / 可用 57.2 GB)
+    const initialFiles = [
+        { name: '教程录屏_数据恢复.mp4', size: 1.8 * 1073741824, date: '09-19 10:24' },
+        { name: 'ubuntu-24.04.3-live-server-amd64.iso', size: 2.6 * 1073741824, date: '09-18 21:47' },
+        { name: 'VMware-workstation-full-17.6.3.exe', size: 620.4 * 1048576, date: '09-18 15:03' },
+        { name: '项目验收材料_20260918.zip', size: 184.6 * 1048576, date: '09-18 14:32' },
+        { name: '设备巡检报告_0901.xlsx', size: 2.1 * 1048576, date: '09-17 09:12' },
+        { name: '客户合同扫描件.pdf', size: 8.4 * 1048576, date: '09-16 17:40', hash: null },
+    ];
+    const fileList = $('fileList');
+    function fileRow(f) {
+        const row = document.createElement('div');
+        row.className = 'f-row';
+        row.dataset.name = f.name;
+        row.dataset.size = f.size;
+        row.dataset.date = f.date;
+        row.dataset.hash = f.hash || '';
+        const hashChip = f.hash
+            ? `<button class="hash-chip mono" data-act="detail" title="点击查看校验码与下载方式">SHA-256 ${escapeHtml(f.hash.slice(0, 12))}…${escapeHtml(f.hash.slice(-4))}</button>`
+            : `<button class="hash-chip none mono" data-act="detail" title="校验码未记录,点击计算">校验码未记录,点击计算</button>`;
+        row.innerHTML = `
+            <span class="badge">${escapeHtml(typeBadge(f.name))}</span>
+            <div class="f-main">
+                <div class="f-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</div>
+                <div class="f-meta mono">${formatSize(f.size)} · ${escapeHtml(f.date)}</div>
+                ${hashChip}
+            </div>
+            <div class="f-actions">
+                <button class="btn btn-sm" data-act="download" title="下载"><svg class="ic"><use href="#i-download"/></svg>下载</button>
+                <button class="icon-btn danger" data-act="delete" aria-label="删除 ${escapeHtml(f.name)}" title="删除"><svg class="ic"><use href="#i-trash"/></svg></button>
+            </div>`;
+        return row;
+    }
+    function addFileToList(f, prepend) {
+        const row = fileRow(f);
+        prepend ? fileList.prepend(row) : fileList.appendChild(row);
+        $('listEmpty').hidden = fileList.children.length > 0;
+        return row;
+    }
+    initialFiles.forEach(f => { if (f.hash !== null && f.hash === undefined) f.hash = genHash(); });
+    initialFiles.forEach(f => addFileToList(f, false));
+    $('listEmpty').hidden = fileList.children.length > 0;
+
+    fileList.addEventListener('click', (e) => {
+        const row = e.target.closest('.f-row');
+        if (!row) return;
+        const act = e.target.closest('[data-act]');
+        if (!act) { openFileModal(row); return; }
+        const a = act.dataset.act;
+        if (a === 'download') toast(`开始下载:${row.dataset.name}(演示不产生真实下载)`);
+        else if (a === 'delete') {
+            openConfirm('删除文件', `将删除「${row.dataset.name}」,此操作不可恢复。`, '删除', () => {
+                row.remove();
+                $('listEmpty').hidden = fileList.children.length > 0;
+                toast('已删除(演示)');
+            });
+        }
+        else if (a === 'detail') openFileModal(row);
+    });
+    $('filesRefresh').addEventListener('click', () => fakeRefresh('cardFiles', '文件列表已刷新(演示)'));
+
+    /* ============ 磁盘水位 ============ */
+    // 演示:可用 57.2 / 总 101.0;实际接入时由后端提供,低于 10% 标红
+    const FREE_GB = 57.2, TOTAL_GB = 101.0;
+    function renderStorage(freeGb) {
+        const usedPct = Math.round((1 - freeGb / TOTAL_GB) * 100);
+        $('storageFill').style.width = usedPct + '%';
+        $('storageFill').classList.toggle('low', freeGb / TOTAL_GB < 0.1);
+        $('storageText').textContent = `可用 ${freeGb.toFixed(1)} GB`;
+    }
+    renderStorage(FREE_GB);
+
+    /* ============ 上传队列(模拟) ============ */
+    const DEMO_SPEED = 112.6 * 1048576; // ≈ 千兆局域网实测速率
+    const MAX_SINGLE = 30 * 1073741824;
+    const queue = [];
+    let qTimer = null, lastTick = 0;
+
+    function enqueue(name, size) {
+        if (size > MAX_SINGLE) { toast(`超过单文件上限 30 GB,已跳过:${name}`, 'err'); return; }
+        const el = document.createElement('div');
+        el.className = 'q-item';
+        el.innerHTML = `
+            <span class="badge badge-sm">${escapeHtml(typeBadge(name))}</span>
+            <div class="q-main">
+                <div class="q-top">
+                    <span class="q-name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
+                    <span class="q-pct mono">0%</span>
+                </div>
+                <div class="bar"><div class="bar-fill"></div></div>
+                <div class="q-stats mono"><span>排队中</span><span>${formatSize(size)}</span></div>
+            </div>
+            <button class="icon-btn" aria-label="取消上传" title="取消"><svg class="ic"><use href="#i-x"/></svg></button>`;
+        el.querySelector('.icon-btn').addEventListener('click', () => cancelOne(name));
+        const item = { name, size, done: 0, state: 'waiting', el };
+        queue.push(item);
+        $('queue').appendChild(el);
+        pump();
+        startTimer();
+    }
+    function pump() {
+        if (queue.some(i => i.state === 'uploading')) return;
+        const next = queue.find(i => i.state === 'waiting');
+        if (!next) return;
+        next.state = 'uploading';
+        lastTick = performance.now();
+    }
+    function startTimer() {
+        if (qTimer) return;
+        lastTick = performance.now();
+        qTimer = setInterval(tickQueue, 250);
+    }
+    function tickQueue() {
+        const now = performance.now();
+        const dt = (now - lastTick) / 1000;
+        lastTick = now;
+        const active = queue.filter(i => i.state === 'uploading');
+        active.forEach(item => {
+            // 速率带小幅抖动,贴近真实局域网曲线
+            const jitter = 0.94 + Math.random() * 0.12;
+            item.done = Math.min(item.size, item.done + DEMO_SPEED * jitter * dt);
+            const pct = Math.floor(item.done / item.size * 100);
+            const eta = Math.max(1, Math.ceil((item.size - item.done) / DEMO_SPEED));
+            item.el.querySelector('.bar-fill').style.width = pct + '%';
+            item.el.querySelector('.q-pct').textContent = pct + '%';
+            item.el.querySelector('.q-stats span').textContent = `${(DEMO_SPEED / 1048576).toFixed(1)} MB/s · 剩余 ${eta} 秒`;
+            if (item.done >= item.size) finishOne(item);
+        });
+        if (queue.length === 0) { clearInterval(qTimer); qTimer = null; }
+    }
+    function finishOne(item) {
+        item.state = 'done';
+        queue.splice(queue.indexOf(item), 1);
+        item.el.classList.add('leaving');
+        setTimeout(() => item.el.remove(), 300);
+        const f = { name: item.name, size: item.size, date: nowStamp(), hash: genHash() };
+        addFileToList(f, true);
+        toast(`上传完成:${item.name},SHA-256 已记录`);
+        pump();
+    }
+    function cancelOne(name) {
+        const idx = queue.findIndex(i => i.name === name);
+        if (idx < 0) return;
+        const item = queue[idx];
+        queue.splice(idx, 1);
+        item.el.classList.add('leaving');
+        setTimeout(() => item.el.remove(), 300);
+        toast(`已取消上传:${name}`, 'warn');
+        pump();
+    }
+    $('dropzone').addEventListener('click', () => $('fileInput').click());
+    $('dropzone').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('fileInput').click(); }
+    });
+    $('fileInput').addEventListener('change', () => {
+        Array.from($('fileInput').files || []).forEach(f => enqueue(f.name, f.size));
+        $('fileInput').value = '';
+    });
+    (function initDrag() {
+        const dz = $('dropzone');
+        ['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, e => {
+            e.preventDefault(); dz.classList.add('over');
+        }));
+        ['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => {
+            e.preventDefault();
+            if (ev === 'dragleave' && dz.contains(e.relatedTarget)) return;
+            dz.classList.remove('over');
+        }));
+        dz.addEventListener('drop', e => {
+            Array.from(e.dataTransfer.files || []).forEach(f => enqueue(f.name, f.size));
+        });
+    })();
+    // 打开页面 1.2 秒后自动演示一轮上传(两个文件排队)
+    setTimeout(() => {
+        enqueue('设计资源包_0919.zip', 348.2 * 1048576);
+        enqueue('设备巡检报告_0919.xlsx', 18.6 * 1048576);
+    }, 1200);
+
+    /* ============ 文件详情弹窗 ============ */
+    const LAN_ORIGIN = 'http://198.51.100.7:5000';
+    let fmState = { name: '', hash: null, row: null };
+
+    function cmdRow(os, cmd) {
+        const div = document.createElement('div');
+        div.className = 'cmd';
+        div.innerHTML = `
+            <div class="cmd-os">${escapeHtml(os)}</div>
+            <div class="cmd-line"><code>${escapeHtml(cmd)}</code><button class="btn btn-sm" data-cmd>复制</button></div>`;
+        div.querySelector('[data-cmd]').addEventListener('click', (e) => {
+            const btn = e.currentTarget;
+            const ok = copyText(cmd);
+            btn.textContent = ok ? '已复制' : '失败';
+            setTimeout(() => { btn.textContent = '复制'; }, 1500);
+        });
+        return div;
+    }
+    function dlUrl(name) {
+        return `${LAN_ORIGIN}/api/download?u=${encodeURIComponent($('userName').textContent)}&filename=${encodeURIComponent(name)}`;
+    }
+    function openFileModal(row) {
+        const name = row.dataset.name;
+        fmState = { name, hash: row.dataset.hash || null, row };
+        $('fmBadge').textContent = typeBadge(name);
+        $('fmName').textContent = name;
+        $('fmMeta').textContent = `${formatSize(Number(row.dataset.size))} · 修改于 ${row.dataset.date}`;
+        renderFmHash();
+        const fn = name;
+        const v = $('fmVerifyCmds'); v.innerHTML = '';
+        v.appendChild(cmdRow('Windows · CMD', `certutil -hashfile "${fn}" SHA256`));
+        v.appendChild(cmdRow('Windows · PowerShell', `Get-FileHash -Algorithm SHA256 "${fn}"`));
+        v.appendChild(cmdRow('Linux', `sha256sum "${fn}"`));
+        v.appendChild(cmdRow('macOS', `shasum -a 256 "${fn}"`));
+        const d = $('fmDlCmds'); d.innerHTML = '';
+        const url = dlUrl(name);
+        d.appendChild(cmdRow('Windows · CMD', `curl -C - -o "${fn}" "${url}"`));
+        d.appendChild(cmdRow('Windows · PowerShell', `curl.exe -C - -o "${fn}" "${url}"`));
+        d.appendChild(cmdRow('Linux / macOS', `curl -C - -o "${fn}" "${url}"`));
+        d.appendChild(cmdRow('aria2 · 4 线程并行', `aria2c -x4 -s4 -c -o "${fn}" "${url}"`));
+        $('fmLink').textContent = url;
+        $('fmQr').innerHTML = qrSvg(name);
+        resetVerify();
+        openMask('fileModal');
+    }
+    function renderFmHash() {
+        const code = $('fmHash'), note = $('fmHashNote'), copyBtn = $('fmHashCopy');
+        if (fmState.hash) {
+            code.textContent = fmState.hash;
+            copyBtn.hidden = false;
+            note.textContent = '接收端下载完成后,在本地算一遍并与上面的校验码比对。';
+        } else {
+            code.textContent = '校验码未记录';
+            copyBtn.hidden = true;
+            note.innerHTML = '';
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-sm';
+            btn.textContent = '立即计算';
+            btn.addEventListener('click', () => {
+                btn.textContent = '计算中…'; btn.disabled = true;
+                setTimeout(() => {
+                    fmState.hash = genHash();
+                    if (fmState.row) {
+                        fmState.row.dataset.hash = fmState.hash;
+                        const chip = fmState.row.querySelector('.hash-chip');
+                        chip.classList.remove('none');
+                        chip.textContent = `SHA-256 ${fmState.hash.slice(0, 12)}…${fmState.hash.slice(-4)}`;
+                    }
+                    renderFmHash();
+                    toast('校验码已记录(演示)');
+                }, 800);
+            });
+            note.appendChild(btn);
+        }
+    }
+    $('fmHashCopy').addEventListener('click', () => {
+        if (fmState.hash) toast(copyText(fmState.hash) ? '校验码已复制' : '复制失败', copyText(fmState.hash) ? 'ok' : 'warn');
+    });
+    $('fmLinkCopy').addEventListener('click', () => {
+        toast(copyText(dlUrl(fmState.name)) ? '链接已复制' : '复制失败', copyText(dlUrl(fmState.name)) ? 'ok' : 'warn');
+    });
+
+    /* ============ 页面内一键校验(模拟) ============ */
+    let verifyTimer = null;
+    function resetVerify() {
+        stopVerify();
+        $('verifyProg').hidden = true;
+        $('verifyOk').hidden = true;
+        $('verifyDrop').hidden = false;
+    }
+    function stopVerify() { if (verifyTimer) { clearInterval(verifyTimer); verifyTimer = null; } }
+    function startVerify(file) {
+        const total = file.size;
+        const speed = 43 * 1048576;            // 页面内 JS SHA-256 实测约 43 MB/s
+        const accel = total > 200 * 1048576 ? 8 : 1; // 演示耐心保护:大文件加速 8 倍
+        $('verifyDrop').hidden = true;
+        $('verifyProg').hidden = false;
+        $('verifyOk').hidden = true;
+        let done = 0, last = performance.now();
+        verifyTimer = setInterval(() => {
+            const now = performance.now();
+            done = Math.min(total, done + speed * accel * (now - last) / 1000);
+            last = now;
+            $('verifyFill').style.width = (done / total * 100) + '%';
+            const note = accel > 1 ? '(演示加速)' : '';
+            $('verifyText').textContent = done >= total
+                ? `已读取 ${formatSize(total)} · 43.0 MB/s${note}`
+                : `${formatSize(done)} / ${formatSize(total)} · 43.0 MB/s${note}`;
+            if (done >= total) {
+                stopVerify();
+                $('verifyProg').hidden = true;
+                $('verifyOk').hidden = false;
+            }
+        }, 200);
+    }
+    $('verifyDrop').addEventListener('click', () => $('verifyInput').click());
+    $('verifyDrop').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('verifyInput').click(); }
+    });
+    $('verifyInput').addEventListener('change', () => {
+        const f = ($('verifyInput').files || [])[0];
+        if (f) startVerify(f);
+        $('verifyInput').value = '';
+    });
+    (function initVerifyDrag() {
+        const dz = $('verifyDrop');
+        ['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('over'); }));
+        ['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => {
+            e.preventDefault();
+            if (ev === 'dragleave' && dz.contains(e.relatedTarget)) return;
+            dz.classList.remove('over');
+        }));
+        dz.addEventListener('drop', e => {
+            const f = (e.dataTransfer.files || [])[0];
+            if (f) startVerify(f);
+        });
+    })();
+
+    /* ============ 二维码(示意图形,非真实码) ============ */
+    function qrSvg(seedStr) {
+        let s = 0;
+        for (const c of seedStr) s = (s * 31 + c.charCodeAt(0)) >>> 0;
+        let a = s || 1;
+        const rnd = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+        const n = 25, cell = (r, c) => `M${c} ${r}h1v1h-1z`;
+        let path = '';
+        const inFinder = (r, c) => (r < 8 && c < 8) || (r < 8 && c >= n - 8) || (r >= n - 8 && c < 8);
+        for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+            if (inFinder(r, c)) continue;
+            if (r === 6 || c === 6) { if ((r + c) % 2 === 0) path += cell(r, c); continue; }
+            if (rnd() < 0.46) path += cell(r, c);
+        }
+        const finder = (r0, c0) => {
+            let p = '';
+            for (let r = 0; r < 7; r++) for (let c = 0; c < 7; c++) {
+                const ring = r === 0 || r === 6 || c === 0 || c === 6;
+                const core = r >= 2 && r <= 4 && c >= 2 && c <= 4;
+                if (ring || core) p += cell(r0 + r, c0 + c);
+            }
+            return p;
+        };
+        path += finder(0, 0) + finder(0, n - 7) + finder(n - 7, 0);
+        return `<svg viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges" role="img" aria-label="二维码示意">
+            <rect width="${n}" height="${n}" fill="#ffffff"/>
+            <path d="${path}" fill="#111318"/></svg>`;
+    }
+
+    /* ============ 顶栏交互 ============ */
+    $('addrChip').addEventListener('click', () => {
+        toast(copyText(LAN_ORIGIN) ? '服务地址已复制' : '复制失败', copyText(LAN_ORIGIN) ? 'ok' : 'warn');
+    });
+    $('userChip').addEventListener('click', (e) => {
+        e.stopPropagation();
+        $('userMenu').hidden = !$('userMenu').hidden;
+    });
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.user-wrap')) $('userMenu').hidden = true;
+    });
+    $('menuSwitch').addEventListener('click', () => {
+        $('userMenu').hidden = true;
+        $('userInput').value = $('userName').textContent;
+        openMask('userModal');
+        $('userInput').select();
+    });
+    $('menuForget').addEventListener('click', () => {
+        $('userMenu').hidden = true;
+        toast('已清除记住的用户(演示)');
+    });
+    function switchUser() {
+        const name = $('userInput').value.trim() || 'default';
+        $('userName').textContent = name;
+        $('userAvatar').textContent = name.slice(0, 1).toLowerCase();
+        closeMask('userModal');
+        toast(`已切换到「${name}」(演示数据不变)`);
+    }
+    $('userOk').addEventListener('click', switchUser);
+    $('userInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') switchUser(); });
+
+    $('demoNoteClose').addEventListener('click', () => { $('demoNote').hidden = true; });
+
+    /* 供评审截图用:?view=modal 自动打开首个文件详情弹窗 */
+    if (new URLSearchParams(location.search).get('view') === 'modal') {
+        const first = fileList.querySelector('.f-row');
+        if (first) openFileModal(first);
+    }
+
+</script>
+</body>
+</html>

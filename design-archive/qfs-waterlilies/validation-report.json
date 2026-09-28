@@ -1,0 +1,99 @@
+{
+  "success": true,
+  "outcome": "passed",
+  "repairable": true,
+  "terminalViolations": [],
+  "terminalBlockingSummary": null,
+  "skillProvenance": {
+    "name": "solo-design",
+    "version": null,
+    "version_source": "unknown",
+    "runtime_skill_dir": null,
+    "recorded_at": null,
+    "expected_version": "2026.08.06.19.15.08",
+    "status": "observed_unknown",
+    "read_status": "unknown"
+  },
+  "operatingMode": "free-explore",
+  "renderBlockingErrorCount": 0,
+  "softWarningCount": 1,
+  "renderBlockingErrors": [],
+  "errorSignatures": [],
+  "softWarnings": [
+    "[orchestration-summary] runtime-orchestration-summary.json is missing skillProvenance.name/version/version_source. Version provenance will be reported as observed_unknown by external evaluators."
+  ],
+  "repairPlanHints": [],
+  "repairActionTable": [],
+  "errorCount": 0,
+  "warningCount": 1,
+  "errors": [],
+  "warnings": [
+    "[orchestration-summary] runtime-orchestration-summary.json is missing skillProvenance.name/version/version_source. Version provenance will be reported as observed_unknown by external evaluators."
+  ],
+  "validationRunDisciplineStatus": {
+    "declared": true,
+    "restoreMode": false,
+    "maxFullValidationRuns": 2,
+    "validationHistoryCount": 0,
+    "repairLedgerCount": 0,
+    "softWarningsTriggerRepair": false,
+    "terminalState": null,
+    "nextAction": null,
+    "violations": [],
+    "success": true
+  },
+  "terminalState": null,
+  "nextCheck": {
+    "type": "finish-readiness",
+    "command": "node \"<HOME>\\.trae-cn\\builtin\\design\\default\\skills\\solo-design\\shared-runtime\\deterministic-tooling\\validate-finish-readiness.mjs\" \"<PROJ>\\qfs-waterlilies\" --check=all",
+    "fullValidationAllowed": false,
+    "reason": "workspace validation passed; run complete finish readiness before final delivery"
+  },
+  "repairBatch": [],
+  "repairContextPacket": {
+    "schema_version": "1.0",
+    "purpose": "small-context repair packet; read this before full validation-report.json",
+    "success": true,
+    "terminalState": null,
+    "skillProvenance": {
+      "name": "solo-design",
+      "version": null,
+      "version_source": "unknown",
+      "runtime_skill_dir": null,
+      "recorded_at": null,
+      "expected_version": "2026.08.06.19.15.08",
+      "status": "observed_unknown",
+      "read_status": "unknown"
+    },
+    "renderBlockingErrorCount": 0,
+    "softWarningCount": 1,
+    "renderBlockingErrors": [],
+    "repairActionTable": [],
+    "nextCheck": {
+      "type": "finish-readiness",
+      "command": "node \"<HOME>\\.trae-cn\\builtin\\design\\default\\skills\\solo-design\\shared-runtime\\deterministic-tooling\\validate-finish-readiness.mjs\" \"<PROJ>\\qfs-waterlilies\" --check=all",
+      "fullValidationAllowed": false,
+      "reason": "workspace validation passed; run complete finish readiness before final delivery"
+    },
+    "forbidden": [
+      "do not read validator source",
+      "do not rerun full validation when nextCheck.fullValidationAllowed=false",
+      "do not start preview/browser unless user explicitly asks",
+      "do not hand-edit repair ledger fields"
+    ]
+  },
+  "projectFileHashes": {
+    "qfs-waterlilies.design": "245ff5a207e4a5a80040e38df61875b873c4daf1705b00044c014f3ef90a922c",
+    "colors_and_type.css": "a700b6da729dbc7a3d7f8e405adf337cdeccc3a8884041148a22b8403821948b",
+    "runtime-orchestration-summary.json": "f811bb064ef564235386eefa22d9efc594e60957634935530ca155f2c7982a7a",
+    "pages/index.html": "87e97b8d72f5f88da3173910a082061d3a10479a14d1f903b40a30a5f7b547ae",
+    "pages/login.html": "ad7fb3b58fdd207cfab58340600ccd4e76de0d72a8d80d898055a1682ef0a28c",
+    "assets/monet-lilies.jpg": "43d0fca943c2bea3128f4cceb064ae4c82c4881e096181750daf0271a2dc4ba7",
+    "assets/monet-lily-bloom.jpg": "59093b2e015c2809d2bb6c5c547b8de2adee7369c9036ab627badccef23e86b5",
+    "assets/monet-pond.jpg": "9299bbd0fcb26d96d5116f7ea405860a9013e411cc7cb2f30e10e531a8849be8"
+  },
+  "designDir": "<PROJ>\\qfs-waterlilies",
+  "expectedPages": 2,
+  "requireInteractions": "login-enter:pages/login.html",
+  "checkedAt": "2026-09-21T06:58:08.180Z"
+}

@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>消息快传 · 克莱因蓝</title>
+<script>document.documentElement.classList.add('js');</script>
+<style>
+/* ============================================================
+   消息快传 · 克莱因蓝（纯前端静态设计稿，假数据，无后端）
+   单色极权：全页只有克莱因蓝一个色相 + 纯白 / 两档半透明白。
+   层级只靠四样东西：留白 / 字号对比 / 字重对比 / 1px 发丝线。
+   无卡片底、无投影、无圆角色块。
+   形状规则：按钮全胶囊，其余一律 0 圆角。
+   字号阶梯：12 / 14 / 16 / 20 / 22 + clamp 巨字（34-52 / 44-64 / 84-160）。
+   半透明白三档（对 IKB #002FA7 对比度）：
+     --ink    纯白 10.7:1   数值/标题/正文
+     --ink-2  .72 白 6.1:1  次级数据
+     --ink-3  .6  白 4.7:1  小标签/注脚（全页对比度下限，两档蓝底均过 4.5:1）
+   ============================================================ */
+:root {
+    --ikb:        #002FA7;               /* 克莱因蓝 IKB，页面底色 */
+    --ikb-deep:   #002686;               /* 加深 20%，洪水层主体 */
+    --ikb-night:  #001F7A;               /* 最深，洪水层底缘 */
+    --ikb-bright: #1A3FAE;               /* 提亮，传输完成瞬间的闪层 */
+    --hair:       rgba(255,255,255,.16); /* 1px 发丝线 */
+    --ink:        #fff;
+    --ink-2:      rgba(255,255,255,.72);
+    --ink-3:      rgba(255,255,255,.6);
+    --serif: Georgia, "Didot", "Bodoni MT", "Times New Roman", "Songti SC", "SimSun", serif;
+    --digits: "Didot", "Bodoni MT", "Times New Roman", Georgia, "Songti SC", "SimSun", serif;
+    --sans: "Helvetica Neue", "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+    --mono: "Cascadia Code", Consolas, "Courier New", monospace;
+    --ease: cubic-bezier(.22,.6,.25,1);
+}
+* { box-sizing: border-box; }
+html { scrollbar-color: rgba(255,255,255,.35) rgba(255,255,255,.05); }
+body {
+    background: var(--ikb);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-weight: 300;
+    margin: 0;
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+}
+::selection { background: #fff; color: var(--ikb); }
+::-webkit-scrollbar { width: 9px; }
+::-webkit-scrollbar-track { background: rgba(255,255,255,.05); }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.22); }
+pre { margin: 0; }
+h1, h2 { margin: 0; font-weight: 400; }
+button { font: inherit; }
+
+/* ========== 底部洪水层（更深的蓝，随总传输进度从底部洇上来） ========== */
+.flood {
+    position: fixed; left: 0; right: 0; bottom: 0; height: 130vh;
+    z-index: 0; pointer-events: none;
+    background: linear-gradient(to top,
+        var(--ikb-night) 0%,
+        rgba(0,38,134,.92) 26%,
+        rgba(0,38,134,.55) 55%,
+        rgba(0,38,134,.18) 76%,
+        rgba(0,38,134,0) 96%);
+    filter: blur(24px);
+    transform: translateY(102%);
+    will-change: transform;
+    transition: transform 1.15s var(--ease);
+}
+/* ========== 传输完成瞬间的整页闪层（透明度过渡） ========== */
+.flash {
+    position: fixed; inset: 0; z-index: 60; pointer-events: none;
+    background: var(--ikb-bright); opacity: 0;
+}
+
+/* ========== 画布 ========== */
+.page { position: relative; z-index: 1; max-width: 1240px; margin: 0 auto; padding: 52px 48px 150px; }
+
+/* ========== 小标签：中文不加字距，拉丁镜全大写 + .25em ========== */
+.lbl {
+    display: inline-flex; align-items: baseline; gap: 10px;
+    font-size: 12px; font-weight: 700; color: var(--ink-3);
+}
+.lbl .zh { letter-spacing: normal; }
+.lbl .en { letter-spacing: .25em; text-transform: uppercase; }
+
+/* ========== 顶部状态区 ========== */
+.status-row {
+    display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap;
+    padding-bottom: 26px; border-bottom: 1px solid var(--hair);
+}
+.status { display: flex; flex-direction: column; gap: 9px; }
+.sval {
+    font-size: 14px; font-weight: 300; letter-spacing: .03em;
+    font-variant-numeric: tabular-nums lining-nums;
+    display: flex; align-items: center; gap: 10px;
+}
+.live {
+    width: 6px; height: 6px; border-radius: 50%; background: #fff;
+    display: inline-block; animation: breathe 2.6s ease-in-out infinite;
+}
+@keyframes breathe { 0%,100% { opacity: .22; } 50% { opacity: 1; } }
+
+/* ========== 标题行 ========== */
+.title-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; padding: 46px 0 6px; }
+h1 { font-family: var(--serif); font-size: clamp(34px, 4.4vw, 52px); letter-spacing: normal; }
+.pigment {
+    text-align: right; font-size: 12px; font-weight: 300;
+    color: var(--ink-3); line-height: 2.1; white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ========== HERO：实时吞吐，页面最大的元素 ========== */
+.hero { padding: 92px 0 86px; }
+.hero .lbl { margin-bottom: 20px; }
+.hero-num {
+    font-family: var(--digits); font-weight: 400;
+    font-size: clamp(84px, 12vw, 160px); line-height: .92;
+    letter-spacing: -0.005em; white-space: nowrap;
+    font-variant-numeric: lining-nums tabular-nums;
+}
+.hero-unit {
+    font-family: var(--sans); font-size: clamp(14px, 1.6vw, 20px); font-weight: 700;
+    letter-spacing: .28em; text-transform: uppercase; margin-left: 22px; color: var(--ink-2);
+}
+/* 吞注：hairline 分列，不用点串 */
+.hero-sub {
+    margin-top: 30px; display: flex; flex-wrap: wrap;
+    font-size: 12px; font-weight: 300; color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+}
+.hero-sub span { padding-right: 20px; margin-right: 20px; border-right: 1px solid var(--hair); }
+.hero-sub span:last-child { border-right: 0; margin-right: 0; padding-right: 0; }
+
+/* ========== 区块头：展签式 ========== */
+.sec-head { display: flex; align-items: baseline; gap: 26px; padding: 28px 0 34px; border-top: 1px solid var(--hair); }
+.sec-idx { font-family: var(--serif); font-size: 16px; color: var(--ink-3); }
+.sec-title .zh { font-size: 14px; font-weight: 700; }
+.sec-title .en {
+    margin-left: 12px; font-size: 12px; font-weight: 700;
+    letter-spacing: .25em; text-transform: uppercase; color: var(--ink-3);
+}
+.sec-note {
+    margin-left: auto; font-size: 12px; font-weight: 300;
+    color: var(--ink-3); text-align: right; font-variant-numeric: tabular-nums;
+}
+
+/* ========== 胶囊按钮：细白描边，hover 纯白圆形扩散填满 ========== */
+.btn {
+    position: relative; overflow: hidden; isolation: isolate;
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 11px 28px; border: 1px solid rgba(255,255,255,.5); border-radius: 999px;
+    background: transparent; color: var(--ink); cursor: pointer;
+    font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: normal;
+    -webkit-tap-highlight-color: transparent;
+    transition: border-color .25s, transform .09s ease;
+}
+.btn::before {
+    content: ""; position: absolute; left: 50%; top: 50%;
+    width: 230%; padding-top: 230%; border-radius: 50%; background: #fff;
+    transform: translate(-50%,-50%) scale(0);
+    transition: transform .55s cubic-bezier(.3,.7,.25,1);
+}
+.btn:hover::before { transform: translate(-50%,-50%) scale(1); }
+.btn > span { position: relative; z-index: 1; transition: color .3s ease .08s; }
+.btn:hover > span { color: var(--ikb); }
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible { outline: 1px solid rgba(255,255,255,.9); outline-offset: 4px; }
+.btn-s { padding: 7px 16px; }
+.btn-l { padding: 15px 46px; }
+.btn.off { pointer-events: none; opacity: .45; }
+
+/* ========== 剪切板 ========== */
+.clips { border-bottom: 1px solid var(--hair); }
+.clip {
+    display: grid; grid-template-columns: 168px minmax(0,1fr) auto;
+    gap: 30px; padding: 26px 0; border-top: 1px solid var(--hair);
+    align-items: start;
+    transition: opacity .5s ease, transform .5s ease;
+}
+.clip.enter { opacity: 0; transform: translateY(12px); }
+.who { font-size: 14px; font-weight: 400; }
+.when {
+    margin-top: 8px; font-size: 12px; font-weight: 300;
+    color: var(--ink-3); font-variant-numeric: tabular-nums;
+}
+.clip-text { min-width: 0; }
+.serif-text { font-family: var(--serif); font-size: 20px; line-height: 1.65; }
+.mono {
+    font-family: var(--mono); font-size: 14px; line-height: 1.75;
+    color: var(--ink); white-space: pre-wrap; word-break: break-all;
+}
+.clip-side { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+.copy-note {
+    font-size: 12px; font-weight: 300; color: var(--ink-2);
+    opacity: 0; transform: translateY(4px); transition: opacity .4s ease, transform .4s ease;
+    white-space: nowrap;
+}
+.copy-note.show { opacity: 1; transform: translateY(0); }
+
+.composer { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; margin-top: 36px; }
+.composer-lbl { flex-shrink: 0; }
+.composer input {
+    flex: 1; min-width: 200px; background: transparent; border: 0;
+    border-bottom: 1px solid rgba(255,255,255,.45);
+    padding: 12px 2px; color: var(--ink); caret-color: var(--ink);
+    font-family: var(--serif); font-size: 16px;
+    transition: border-color .3s;
+}
+.composer input::placeholder { color: var(--ink-3); }
+.composer input:focus { outline: none; }
+.composer input:focus-visible { border-bottom-color: #fff; box-shadow: 0 1px 0 #fff; }
+
+/* ========== 文件库：展品清单（序号 / 名称 / 尺寸 / 时间 / 操作 列对齐） ========== */
+.files { border-bottom: 1px solid var(--hair); }
+.frow {
+    position: relative;
+    display: grid; grid-template-columns: 56px minmax(0,1fr) 100px 132px auto;
+    gap: 24px; align-items: center; padding: 21px 10px;
+    border-top: 1px solid var(--hair);
+    transition: opacity .35s ease, transform .35s ease;
+}
+.frow::before {
+    content: ""; position: absolute; inset: 0; background: #fff;
+    transform: scaleX(0); transform-origin: left center;
+    transition: transform .3s cubic-bezier(.3,.7,.3,1);
+}
+.frow:hover::before { transform: scaleX(1); }
+.fm { display: contents; }
+.frow > *, .fm > span { position: relative; transition: color .18s ease .04s; }
+.frow:hover > *, .frow:hover .fm > span { color: var(--ikb); }
+.fidx { font-family: var(--serif); font-size: 20px; color: var(--ink-3); }
+.fname {
+    font-family: var(--serif); font-size: 20px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fsize, .ftime {
+    font-size: 14px; font-weight: 300; text-align: right; white-space: nowrap;
+    font-variant-numeric: tabular-nums lining-nums;
+}
+.fsize { color: var(--ink-2); }
+.ftime { color: var(--ink-3); }
+.facts { display: flex; gap: 10px; }
+.frow:hover .fsize, .frow:hover .ftime { opacity: .75; }
+.frow:hover .btn { border-color: rgba(0,47,167,.55); }
+.frow:hover .btn > span { color: var(--ikb); }
+.frow:hover .btn::before { background: var(--ikb); }
+.frow:hover .btn:hover > span { color: #fff; }
+.frow:hover .btn:focus-visible { outline-color: var(--ikb); }
+.frow.gone { opacity: 0; transform: translateX(-26px); }
+
+/* ========== 传输区 ========== */
+.titem { padding: 34px 0 38px; border-top: 1px solid var(--hair); }
+.titem:last-of-type { border-bottom: 1px solid var(--hair); }
+.trow1 { display: flex; align-items: baseline; gap: 28px; }
+.tid { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 20px; }
+.tdir { font-size: 14px; font-weight: 700; flex-shrink: 0; }
+.tname {
+    font-family: var(--serif); font-size: 22px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tpct {
+    font-family: var(--digits); font-size: clamp(44px, 6vw, 64px); line-height: 1;
+    white-space: nowrap; flex-shrink: 0;
+    font-variant-numeric: lining-nums tabular-nums;
+}
+.tsign { font-size: .45em; margin-left: 3px; color: var(--ink-2); }
+.tline { height: 1px; background: rgba(255,255,255,.16); margin: 20px 0 15px; }
+.tfill {
+    display: block; height: 100%; background: #fff;
+    transform: scaleX(.124); transform-origin: left center;
+    transition: transform .3s linear;
+}
+.trow2 { display: flex; justify-content: space-between; align-items: baseline; gap: 20px; flex-wrap: wrap; }
+.tspeed { font-size: 14px; font-weight: 300; font-variant-numeric: tabular-nums; }
+.teta { font-size: 12px; font-weight: 300; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+.demo-row { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; padding-top: 32px; }
+.demo-note {
+    font-size: 12px; font-weight: 300; line-height: 1.9;
+    color: var(--ink-3); max-width: 560px;
+}
+
+/* ========== 页脚 ========== */
+.foot {
+    margin-top: 44px; padding-top: 30px; border-top: 1px solid var(--hair);
+    display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    font-size: 12px; font-weight: 300; color: var(--ink-3);
+}
+
+/* ========== 入场：画廊灯亮起，区块错峰上浮（仅 JS 可用时启用） ========== */
+header.r1, .hero.r2, .sec.r3, .sec.r4, .sec.r5 {
+    transition: opacity .8s var(--ease), transform .8s var(--ease);
+}
+html.js body:not(.ready) header.r1,
+html.js body:not(.ready) .hero.r2,
+html.js body:not(.ready) .sec.r3,
+html.js body:not(.ready) .sec.r4,
+html.js body:not(.ready) .sec.r5 { opacity: 0; transform: translateY(22px); }
+body.ready .hero.r2 { transition-delay: .06s; }
+body.ready .sec.r3  { transition-delay: .14s; }
+body.ready .sec.r4  { transition-delay: .2s; }
+body.ready .sec.r5  { transition-delay: .26s; }
+
+/* ========== 窄屏兜底 ========== */
+@media (max-width: 900px) {
+    .page { padding: 30px 18px 90px; }
+    .status-row { flex-direction: column; gap: 16px; }
+    .title-row { flex-direction: column; align-items: flex-start; gap: 16px; }
+    .pigment { text-align: left; }
+    .hero { padding: 54px 0 50px; }
+    .hero-num { white-space: normal; }
+    .clip { grid-template-columns: 1fr; gap: 13px; }
+    .clip-side { flex-direction: row; align-items: center; }
+    .frow { grid-template-columns: 44px minmax(0,1fr); row-gap: 8px; }
+    .fm { display: flex; gap: 20px; grid-column: 2; }
+    .fsize, .ftime { text-align: left; }
+    .facts { grid-column: 2; margin-top: 4px; }
+    .tpct { font-size: 40px; }
+    .tname { font-size: 18px; }
+}
+
+/* ========== 减少动态：全部动画/过渡静止化（洪水改为分档跳变，见 JS） ========== */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+        transition-delay: 0s !important;
+    }
+}
+</style>
+</head>
+<body>
+    <!-- 底部洪水层：更深的蓝，随总传输进度从底部缓慢洇上来 -->
+    <div class="flood" id="flood" aria-hidden="true"></div>
+    <!-- 传输完成瞬间整页闪过的更饱和的蓝 -->
+    <div class="flash" id="flash" aria-hidden="true"></div>
+
+    <main class="page">
+
+        <!-- ① 顶部状态区 -->
+        <header class="r1">
+            <div class="status-row">
+                <div class="status">
+                    <span class="lbl"><span class="zh">局域网</span><span class="en">LAN</span></span>
+                    <span class="sval"><i class="live" aria-hidden="true"></i>198.51.100.7 · 在线</span>
+                </div>
+                <div class="status">
+                    <span class="lbl"><span class="zh">磁盘剩余</span><span class="en">Disk</span></span>
+                    <span class="sval">370 GB</span>
+                </div>
+                <div class="status">
+                    <span class="lbl"><span class="zh">当前用户</span><span class="en">User</span></span>
+                    <span class="sval">用户</span>
+                </div>
+            </div>
+            <div class="title-row">
+                <h1>消息快传 · 克莱因蓝</h1>
+                <div class="pigment">
+                    <div>国际克莱因蓝 · IKB</div>
+                    <div>#002FA7 · 唯一色相</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- HERO：实时吞吐，页面主角 -->
+        <section class="hero r2">
+            <div class="lbl"><span class="zh">实时吞吐</span><span class="en">Throughput</span></div>
+            <div class="hero-num"><span id="heroSpeed">198.8</span><span class="hero-unit">MB/s</span></div>
+            <div class="hero-sub">
+                <span>2 路传输</span><span>32 MB 分片</span><span>4 路并行</span>
+            </div>
+        </section>
+
+        <!-- ② 剪切板 -->
+        <section class="sec r3">
+            <div class="sec-head">
+                <span class="sec-idx">01</span>
+                <h2 class="sec-title"><span class="zh">剪切板</span><span class="en">Clipboard</span></h2>
+                <span class="sec-note">4 条 · 多端自动同步</span>
+            </div>
+            <div class="clips" id="clipList">
+                <div class="clip">
+                    <div class="clip-meta">
+                        <div class="who">momo · 笔记本</div>
+                        <div class="when">21:14</div>
+                    </div>
+                    <div class="clip-text mono" id="clipLink">http&#58;//198.51.100.7:5000/f/a7Xk92Qd</div>
+                    <div class="clip-side">
+                        <button type="button" class="btn btn-s" onclick="copyClip(this)"><span>复制</span></button>
+                        <span class="copy-note" aria-live="polite">已复制到剪切板</span>
+                    </div>
+                </div>
+                <div class="clip">
+                    <div class="clip-meta">
+                        <div class="who">qy · 台式机</div>
+                        <div class="when">21:02</div>
+                    </div>
+                    <pre class="clip-text mono">location /f/ {
+    proxy_pass http&#58;//127.0.0.1:5000;
+    client_max_body_size 32g;
+    proxy_request_buffering off;
+}</pre>
+                    <div class="clip-side">
+                        <button type="button" class="btn btn-s" onclick="copyClip(this)"><span>复制</span></button>
+                        <span class="copy-note" aria-live="polite">已复制到剪切板</span>
+                    </div>
+                </div>
+                <div class="clip">
+                    <div class="clip-meta">
+                        <div class="who">momo · 笔记本</div>
+                        <div class="when">21:15</div>
+                    </div>
+                    <div class="clip-text serif-text">晚上吃火锅</div>
+                    <div class="clip-side">
+                        <button type="button" class="btn btn-s" onclick="copyClip(this)"><span>复制</span></button>
+                        <span class="copy-note" aria-live="polite">已复制到剪切板</span>
+                    </div>
+                </div>
+                <div class="clip">
+                    <div class="clip-meta">
+                        <div class="who">qy · 手机</div>
+                        <div class="when">21:16</div>
+                    </div>
+                    <div class="clip-text serif-text">好，七点老地方见</div>
+                    <div class="clip-side">
+                        <button type="button" class="btn btn-s" onclick="copyClip(this)"><span>复制</span></button>
+                        <span class="copy-note" aria-live="polite">已复制到剪切板</span>
+                    </div>
+                </div>
+            </div>
+            <div class="composer">
+                <label class="lbl composer-lbl" for="clipInput"><span class="zh">写入剪切板</span></label>
+                <input id="clipInput" type="text" maxlength="500"
+                       placeholder="回车发送"
+                       onkeydown="if(event.key==='Enter')sendClip()">
+                <button type="button" class="btn" onclick="sendClip()"><span>发送</span></button>
+                <span id="sendNote" class="copy-note" aria-live="polite"></span>
+            </div>
+        </section>
+
+        <!-- ③ 文件库：展品清单 -->
+        <section class="sec r4">
+            <div class="sec-head">
+                <span class="sec-idx">02</span>
+                <h2 class="sec-title"><span class="zh">文件库</span><span class="en">Files</span></h2>
+                <span class="sec-note" id="filesNote">8 件 · 共 68.9 GB</span>
+            </div>
+            <div class="files" id="fileList">
+                <div class="frow" data-gb="38.4">
+                    <span class="fidx">01</span>
+                    <span class="fname">postgres-dump.sql.gz</span>
+                    <span class="fm"><span class="fsize">38.4 GB</span><span class="ftime">昨天 23:41</span></span>
+                    <span class="facts">
+                        <button type="button" class="btn btn-s" onclick="fakeDl(this)"><span>下载</span></button>
+                        <button type="button" class="btn btn-s" onclick="delFile(this)"><span>删除</span></button>
+                    </span>
+                </div>
+                <div class="frow" data-gb="21.7">
+                    <span class="fidx">02</span>
+                    <span class="fname">家庭录像2026春节.mkv</span>
+                    <span class="fm"><span class="fsize">21.7 GB</span><span class="ftime">2026-02-18</span></span>
+                    <span class="facts">
+                        <button type="button" class="btn btn-s" onclick="fakeDl(this)"><span>下载</span></button>
+                        <button type="button" class="btn btn-s" onclick="delFile(this)"><span>删除</span></button>
+                    </span>
+                </div>
+                <div class="frow" data-gb="5.8">
+                    <span class="fidx">03</span>
+                    <span class="fname">歌曲合集.flac</span>
+                    <span class="fm"><span class="fsize">5.8 GB</span><span class="ftime">09-02 21:10</span></span>
+                    <span class="facts">
+                        <button type="button" class="btn btn-s" onclick="fakeDl(this)"><span>下载</span></button>
+                        <button type="button" class="btn btn-s" onclick="delFile(this)"><span>删除</span></button>
+                    </span>
+                </div>
+                <div class="frow" data-gb="2.1">
+                    <span class="fidx">04</span>
+                    <span class="fname">node_modules.tar</span>
+                    <span class="fm"><span class="fsize">2.1 GB</span><span class="ftime">09-12 03:22</span></span>
+                    <span class="facts">
+                        <button type="button" class="btn btn-s" onclick="fakeDl(this)"><span>下载</span></button>
+                        <button type="button" class="btn btn-s" onclick="delFile(this)"><span>删除</span></button>
+                    </span>
+                </div>
+                <div class="frow" data-gb="0.822">
+                    <span class="fidx">05</span>
+                    <span class="fname">壁纸包.zip</span>
+                    <span class="fm"><span class="fsize">842 MB</span><span class="ftime">09-15 11:47</span></span>
+                    <span class="facts">
+                        <button type="button" class="btn btn-s" onclick="fakeDl(this)"><span>下载</span></button>
+                        <button type="button" class="btn btn-s" onclick="delFile(this)"><span>删除</span></button>
+                    </span>
+                </div>
+                <div class="frow" data-gb="0.0352">
+                    <span class="fidx">06</span>
+                    <span class="fname">毕业设计.pptx</span>
+                    <span class="fm"><span class="fsize">36 MB</span><span class="ftime">09-17 09:31</span></span>
+                    <span class="facts">
+                        <button type="button" class="btn btn-s" onclick="fakeDl(this)"><span>下载</span></button>
+                        <button type="button" class="btn btn-s" onclick="delFile(this)"><span>删除</span></button>
+                    </span>
+                </div>
+                <div class="frow" data-gb="0.0121">
+                    <span class="fidx">07</span>
+                    <span class="fname">report-final-v3.pdf</span>
+                    <span class="fm"><span class="fsize">12.4 MB</span><span class="ftime">09-18 14:02</span></span>
+                    <span class="facts">
+                        <button type="button" class="btn btn-s" onclick="fakeDl(this)"><span>下载</span></button>
+                        <button type="button" class="btn btn-s" onclick="delFile(this)"><span>删除</span></button>
+                    </span>
+                </div>
+                <div class="frow" data-gb="0.0041">
+                    <span class="fidx">08</span>
+                    <span class="fname">证件扫描.png</span>
+                    <span class="fm"><span class="fsize">4.2 MB</span><span class="ftime">今天 20:07</span></span>
+                    <span class="facts">
+                        <button type="button" class="btn btn-s" onclick="fakeDl(this)"><span>下载</span></button>
+                        <button type="button" class="btn btn-s" onclick="delFile(this)"><span>删除</span></button>
+                    </span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ④ 传输区 -->
+        <section class="sec r5">
+            <div class="sec-head">
+                <span class="sec-idx">03</span>
+                <h2 class="sec-title"><span class="zh">传输</span><span class="en">Transfers</span></h2>
+                <span class="sec-note">2 路进行中 · 32 MB 分片</span>
+            </div>
+
+            <div class="titem">
+                <div class="trow1">
+                    <div class="tid">
+                        <span class="tdir">&#8593; 上传</span>
+                        <span class="tname">家庭录像2026春节.mkv</span>
+                    </div>
+                    <div class="tpct"><span id="upPctNum">12.4</span><span class="tsign">%</span></div>
+                </div>
+                <div class="tline"><i class="tfill" id="upFill"></i></div>
+                <div class="trow2">
+                    <span class="tspeed" id="upSpeed">112.6 MB/s</span>
+                    <span class="teta" id="upEta">剩余 2 分 53 秒</span>
+                </div>
+            </div>
+
+            <div class="titem">
+                <div class="trow1">
+                    <div class="tid">
+                        <span class="tdir">&#8595; 下载</span>
+                        <span class="tname">postgres-dump.sql.gz</span>
+                    </div>
+                    <div class="tpct"><span id="dnPctNum">68.2</span><span class="tsign">%</span></div>
+                </div>
+                <div class="tline"><i class="tfill" id="dnFill"></i></div>
+                <div class="trow2">
+                    <span class="tspeed" id="dnSpeed">86.2 MB/s</span>
+                    <span class="teta" id="dnEta">剩余 2 分 25 秒</span>
+                </div>
+            </div>
+
+            <div class="demo-row">
+                <button type="button" class="btn btn-l" id="demoBtn" onclick="runDemo()"><span>演示传输</span></button>
+                <span class="demo-note" id="demoNote">进度涨至 100%，速度随机波动，深蓝随总进度从底部上涨，完成时整页闪蓝</span>
+            </div>
+        </section>
+
+        <footer class="foot">
+            <span>QuickFilesSharing · 消息快传</span>
+            <span>仅限可信局域网 · 静态演示稿</span>
+        </footer>
+    </main>
+
+<script>
+/* ===== 演示引擎：全部假数据，无任何网络请求 ===== */
+var REDUCED = false;
+try { REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+
+var TR = {
+    up: { pct: 12.4, speed: 112.6, base: 112.6, sizeGB: 21.7, idleCap: 13.2, done: false, avg: 0, elapsed: 0 },
+    dn: { pct: 68.2, speed: 86.2,  base: 86.2,  sizeGB: 38.4, idleCap: 69.0, done: false, avg: 0, elapsed: 0 }
+};
+var demoRunning = false;
+var tickN = 0;
+
+var EL = {};
+['heroSpeed', 'flood', 'flash', 'upPctNum', 'upFill', 'upSpeed', 'upEta',
+ 'dnPctNum', 'dnFill', 'dnSpeed', 'dnEta', 'demoBtn', 'demoNote',
+ 'clipInput', 'clipList', 'sendNote', 'filesNote'].forEach(function (id) {
+    EL[id] = document.getElementById(id);
+});
+
+function f1(x) { return x.toFixed(1); }
+
+function fmtDur(s) {
+    if (!isFinite(s) || s <= 0) return '0 秒';
+    if (s < 60) return Math.ceil(s) + ' 秒';
+    var m = Math.floor(s / 60), r = Math.ceil(s % 60);
+    if (m < 60) return m + ' 分 ' + r + ' 秒';
+    return Math.floor(m / 60) + ' 时 ' + (m % 60) + ' 分';
+}
+
+/* 渲染：百分比大字 / 1px 细线 / 巨字吞吐 / 底部洪水层 */
+function render() {
+    var heroSum = 0;
+    Object.keys(TR).forEach(function (k) {
+        var t = TR[k];
+        var pct = Math.min(100, t.pct);
+        EL[k + 'PctNum'].textContent = f1(pct);
+        EL[k + 'Fill'].style.transform = 'scaleX(' + (pct / 100).toFixed(4) + ')';
+        if (t.done) {
+            EL[k + 'Speed'].textContent = '已完成 · 平均 ' + f1(t.avg) + ' MB/s';
+            EL[k + 'Eta'].textContent = '用时 ' + fmtDur(t.elapsed);
+        } else {
+            EL[k + 'Speed'].textContent = f1(t.speed) + ' MB/s';
+            EL[k + 'Eta'].textContent = '剩余 ' + fmtDur(t.sizeGB * (100 - pct) / 100 * 1024 / t.speed);
+            heroSum += t.speed;
+        }
+    });
+    EL.heroSpeed.textContent = f1(heroSum);
+    var avgPct = (Math.min(100, TR.up.pct) + Math.min(100, TR.dn.pct)) / 200;
+    var cover = 0.10 + avgPct * 0.80;
+    /* 减少动态时洪水按 5% 分档跳变，避免高频位移 */
+    if (REDUCED) cover = Math.round(cover * 20) / 20;
+    EL.flood.style.transform = 'translateY(' + ((1 - cover) * 100).toFixed(2) + '%)';
+}
+
+/* 静置态：速度轻微呼吸，进度几乎不动 */
+function stepIdle() {
+    Object.keys(TR).forEach(function (k) {
+        var t = TR[k];
+        if (t.done) return;
+        t.speed = t.base * (0.965 + Math.random() * 0.07);
+        t.pct = Math.min(t.pct + Math.random() * 0.02, t.idleCap);
+    });
+}
+
+/* 演示态：进度递增，速度随机波动 */
+function stepDemo() {
+    Object.keys(TR).forEach(function (k) {
+        var t = TR[k];
+        if (t.done) return;
+        var rate = (k === 'up') ? 1.25 : 0.52;
+        t.pct += rate * (0.6 + Math.random() * 0.8);
+        t.speed += (t.base * 1.04 - t.speed) * 0.05 + (Math.random() - 0.5) * t.base * 0.16;
+        t.speed = Math.max(t.base * 0.55, Math.min(t.base * 1.5, t.speed));
+        if (t.pct >= 100) {
+            t.pct = 100;
+            t.done = true;
+            t.avg = t.base * (1 + Math.random() * 0.08);
+            t.elapsed = t.sizeGB * 1024 / t.avg;
+            flashPage();
+        }
+    });
+    if (TR.up.done && TR.dn.done) finishDemo();
+}
+
+/* 传输完成瞬间：整页闪过一层更饱和的蓝（减少动态时跳过） */
+function flashPage() {
+    if (REDUCED) return;
+    var f = EL.flash;
+    f.style.transition = 'opacity 100ms linear';
+    f.style.opacity = '0.92';
+    setTimeout(function () {
+        f.style.transition = 'opacity 1200ms ease-out';
+        f.style.opacity = '0';
+    }, 110);
+}
+
+function runDemo() {
+    if (demoRunning) return;
+    demoRunning = true;
+    resetTransfers();
+    EL.demoBtn.classList.add('off');
+    EL.demoBtn.querySelector('span').textContent = '演示中';
+    EL.demoNote.textContent = '演示进行中，约 10 秒，注意底部深蓝与巨字变化';
+}
+
+function finishDemo() {
+    demoRunning = false;
+    EL.demoNote.textContent = '传输完成，3 秒后复位';
+    setTimeout(function () {
+        resetTransfers();
+        EL.demoBtn.classList.remove('off');
+        EL.demoBtn.querySelector('span').textContent = '演示传输';
+        EL.demoNote.textContent = '进度涨至 100%，速度随机波动，深蓝随总进度从底部上涨，完成时整页闪蓝';
+    }, 3000);
+}
+
+function resetTransfers() {
+    TR.up.pct = 12.4; TR.up.speed = 112.6; TR.up.done = false;
+    TR.dn.pct = 68.2; TR.dn.speed = 86.2; TR.dn.done = false;
+    render();
+}
+
+/* ===== 复制（file:// 下无 secure context，用 execCommand 兜底） ===== */
+function doCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+}
+
+function copyClip(btn) {
+    var text = btn.closest('.clip').querySelector('.clip-text').textContent;
+    var ok = doCopy(text.replace(/\s+$/, ''));
+    var n = btn.parentElement.querySelector('.copy-note');
+    n.textContent = ok ? '已复制到剪切板' : '复制失败';
+    n.classList.add('show');
+    clearTimeout(n._t);
+    n._t = setTimeout(function () { n.classList.remove('show'); }, 1600);
+}
+
+/* ===== 剪切板发送 ===== */
+function sendClip() {
+    var input = EL.clipInput;
+    var v = input.value.trim();
+    if (!v) { input.focus(); return; }
+    var row = document.createElement('div');
+    row.className = 'clip enter';
+    row.innerHTML =
+        '<div class="clip-meta"><div class="who">qy · 本机</div><div class="when">刚刚</div></div>' +
+        '<div class="clip-text serif-text"></div>' +
+        '<div class="clip-side"><button type="button" class="btn btn-s" onclick="copyClip(this)"><span>复制</span></button>' +
+        '<span class="copy-note" aria-live="polite">已复制到剪切板</span></div>';
+    row.querySelector('.clip-text').textContent = v;
+    EL.clipList.appendChild(row);
+    requestAnimationFrame(function () {
+        requestAnimationFrame(function () { row.classList.remove('enter'); });
+    });
+    input.value = '';
+    EL.sendNote.textContent = '已发送，局域网内所有设备可见';
+    EL.sendNote.classList.add('show');
+    clearTimeout(sendClip._t);
+    sendClip._t = setTimeout(function () { EL.sendNote.classList.remove('show'); }, 2200);
+    input.focus();
+}
+
+/* ===== 文件操作（假动作） ===== */
+function fakeDl(btn) {
+    var s = btn.querySelector('span');
+    var old = s.textContent;
+    s.textContent = '已开始';
+    btn.classList.add('off');
+    clearTimeout(btn._t);
+    btn._t = setTimeout(function () {
+        s.textContent = old;
+        btn.classList.remove('off');
+    }, 1400);
+}
+
+function delFile(btn) {
+    var row = btn.closest('.frow');
+    row.classList.add('gone');
+    setTimeout(function () {
+        row.remove();
+        renumber();
+        updateFileNote();
+    }, 380);
+}
+
+function renumber() {
+    var rows = document.querySelectorAll('.frow');
+    for (var i = 0; i < rows.length; i++) {
+        rows[i].querySelector('.fidx').textContent = (i < 9 ? '0' : '') + (i + 1);
+    }
+}
+
+function updateFileNote() {
+    var rows = document.querySelectorAll('.frow');
+    var total = 0;
+    for (var i = 0; i < rows.length; i++) total += parseFloat(rows[i].getAttribute('data-gb') || '0');
+    var size = total >= 1 ? (Math.round(total * 10) / 10).toFixed(1) + ' GB' : Math.round(total * 1024) + ' MB';
+    EL.filesNote.textContent = rows.length + ' 件 · 共 ' + size;
+}
+
+/* ===== 启动：画廊灯亮起 + 引擎常转 ===== */
+requestAnimationFrame(function () {
+    requestAnimationFrame(function () { document.body.classList.add('ready'); });
+});
+render();
+setInterval(function () {
+    tickN++;
+    if (demoRunning) stepDemo();
+    else if (tickN % 7 === 0) stepIdle();
+    render();
+}, 140);
+</script>
+</body>
+</html>

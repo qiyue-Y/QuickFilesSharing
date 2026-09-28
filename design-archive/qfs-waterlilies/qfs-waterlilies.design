@@ -1,0 +1,116 @@
+{
+  "data": [
+    {
+      "id": "page-index",
+      "title": "QFS · 睡莲池",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1789900000000,
+      "canvasData": {
+        "x": 96,
+        "y": 120,
+        "group": 0,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1476,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-64d5568a",
+          "measuredAt": 1789912686090
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/index.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-login",
+      "title": "QFS · 登录",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1789971895650,
+      "canvasData": {
+        "x": 72,
+        "y": -24,
+        "group": 0,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-f3ad2c53",
+          "measuredAt": 1789974200124
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/login.html",
+        "interactions": [
+          {
+            "domId": "login-enter",
+            "targetPageId": "page-index"
+          }
+        ]
+      }
+    },
+    {
+      "id": "image-001",
+      "title": "暮色睡莲池全景",
+      "type": "image",
+      "version": 1,
+      "createdAt": 1789900000000,
+      "canvasData": {
+        "x": 528,
+        "y": -120,
+        "naturalSize": {
+          "width": 2560,
+          "height": 1440
+        }
+      },
+      "devMetadata": {
+        "imageSrc": "assets/monet-pond.jpg"
+      }
+    },
+    {
+      "id": "image-002",
+      "title": "粉色睡莲特写",
+      "type": "image",
+      "version": 1,
+      "createdAt": 1789900000000,
+      "canvasData": {
+        "x": 612,
+        "y": -204,
+        "naturalSize": {
+          "width": 2048,
+          "height": 2048
+        }
+      },
+      "devMetadata": {
+        "imageSrc": "assets/monet-lilies.jpg"
+      }
+    },
+    {
+      "id": "image-003",
+      "title": "暮色池面单株睡莲",
+      "type": "image",
+      "version": 1,
+      "createdAt": 1789971895650,
+      "canvasData": {
+        "x": 540,
+        "y": 288,
+        "naturalSize": {
+          "width": 1680,
+          "height": 2240
+        }
+      },
+      "devMetadata": {
+        "imageSrc": "assets/monet-lily-bloom.jpg"
+      }
+    }
+  ],
+  "config": {
+    "autoLayout": false,
+    "deviceType": "desktop",
+    "projectName": "QFS 睡莲池",
+    "visualEditorEnabled": true,
+    "showEdge": false
+  }
+}

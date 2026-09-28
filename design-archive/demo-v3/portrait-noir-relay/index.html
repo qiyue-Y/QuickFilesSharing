@@ -1,0 +1,2059 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f6f3">
+  <title>QFR - Portrait Noir</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f5f6f3;
+      --surface: rgba(250, 250, 247, 0.9);
+      --ink: #20211f;
+      --muted: #777a73;
+      --line: #d8dad4;
+      --line-strong: #b5b8b0;
+      --accent: #793f48;
+      --accent-soft: #eee4e5;
+      --success: #476651;
+      --error: #9a3f45;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      --serif: "Iowan Old Style", "Baskerville", "Times New Roman", serif;
+      --sans: "Aptos", "Segoe UI", "Microsoft YaHei UI", "PingFang SC", sans-serif;
+      --mono: "Cascadia Mono", "Consolas", "SF Mono", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      min-height: 100%;
+      margin: 0;
+    }
+
+    body {
+      overflow-x: hidden;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 15px;
+      letter-spacing: 0;
+    }
+
+    button,
+    input,
+    textarea {
+      color: inherit;
+      font: inherit;
+      letter-spacing: 0;
+    }
+
+    button,
+    a,
+    input,
+    textarea {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible,
+    a:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 4px;
+    }
+
+    .app {
+      position: relative;
+      min-height: 100dvh;
+      isolation: isolate;
+      overflow: hidden;
+    }
+
+    .grain {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      pointer-events: none;
+      opacity: 0.025;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.7'/%3E%3C/svg%3E");
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 14px;
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    .brand-mark {
+      font-family: var(--serif);
+      font-size: clamp(52px, 6vw, 88px);
+      font-weight: 400;
+      line-height: 0.78;
+    }
+
+    .brand-name {
+      max-width: 80px;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.35;
+      text-transform: uppercase;
+    }
+
+    .portrait {
+      position: absolute;
+      z-index: -1;
+      left: clamp(-72px, -3vw, -28px);
+      bottom: -5vh;
+      width: min(60vw, 760px);
+      height: min(98dvh, 1000px);
+      margin: 0;
+      pointer-events: none;
+      transform-origin: left bottom;
+      transition:
+        transform 1s var(--ease),
+        opacity 0.75s var(--ease),
+        filter 0.75s var(--ease);
+    }
+
+    .portrait img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: left bottom;
+    }
+
+    .art-credit {
+      position: fixed;
+      z-index: 5;
+      left: 26px;
+      bottom: 18px;
+      color: #676961;
+      font-size: 10px;
+      text-decoration: none;
+      transition: opacity 0.4s ease;
+    }
+
+    .art-credit:hover {
+      color: var(--accent);
+    }
+
+    .login-view,
+    .workspace-view {
+      min-height: 100dvh;
+      transition:
+        opacity 0.55s var(--ease),
+        transform 0.75s var(--ease),
+        visibility 0s linear 0.75s;
+    }
+
+    .login-view {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      padding: clamp(28px, 4vw, 60px) clamp(24px, 7vw, 110px) 28px;
+    }
+
+    .login-view > header {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .login-main {
+      display: flex;
+      align-items: center;
+      width: min(560px, 43vw);
+      margin-left: auto;
+      padding: 5vh 0 2vh;
+    }
+
+    .login-copy {
+      width: 100%;
+      transform: translateY(0);
+      transition: transform 0.75s var(--ease), opacity 0.5s ease;
+    }
+
+    .login-title {
+      max-width: 520px;
+      margin: 0 0 46px;
+      font-family: var(--serif);
+      font-size: clamp(38px, 4.3vw, 68px);
+      font-weight: 400;
+      line-height: 1.03;
+    }
+
+    .login-title em {
+      color: var(--accent);
+      font-weight: 400;
+    }
+
+    .login-form {
+      max-width: 390px;
+    }
+
+    .field {
+      display: grid;
+      gap: 10px;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .name-input,
+    .search-input {
+      width: 100%;
+      border: 0;
+      border-bottom: 1px solid var(--line-strong);
+      border-radius: 0;
+      background: transparent;
+      transition: border-color 0.25s ease;
+    }
+
+    .name-input {
+      height: 56px;
+      padding: 0;
+      font-family: var(--serif);
+      font-size: 28px;
+    }
+
+    .name-input::placeholder,
+    .search-input::placeholder,
+    textarea::placeholder {
+      color: #8b8e86;
+      opacity: 1;
+    }
+
+    .name-input:focus,
+    .search-input:focus {
+      border-color: var(--accent);
+      outline: 0;
+    }
+
+    .form-error {
+      min-height: 18px;
+      margin: 9px 0 0;
+      color: var(--error);
+      font-size: 12px;
+      opacity: 0;
+      transform: translateY(-4px);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    .form-error.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .primary-action {
+      min-width: 126px;
+      height: 48px;
+      margin-top: 24px;
+      padding: 0 26px;
+      border-radius: 2px;
+      background: var(--ink);
+      color: #f8f8f5;
+      transition: background 0.25s ease, transform 0.2s ease;
+    }
+
+    .primary-action:hover {
+      background: var(--accent);
+    }
+
+    .primary-action:active,
+    .text-action:active,
+    .icon-action:active,
+    .tab:active,
+    .identity-name:active {
+      transform: scale(0.98);
+    }
+
+    .login-footnote {
+      justify-self: end;
+      width: min(560px, 43vw);
+      max-width: 360px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+
+    .workspace-view {
+      position: absolute;
+      inset: 0;
+      visibility: hidden;
+      pointer-events: none;
+      overflow-y: auto;
+      padding: 24px clamp(22px, 4vw, 64px) 32px;
+      opacity: 0;
+      transform: translateY(36px);
+    }
+
+    .workspace-view:focus {
+      outline: 0;
+    }
+
+    .workspace-header {
+      position: relative;
+      display: flex;
+      min-height: 70px;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .workspace-header .brand-mark {
+      font-size: 54px;
+    }
+
+    .workspace-header .brand {
+      padding: 0;
+      background: transparent;
+    }
+
+    .workspace-header .brand-name {
+      display: none;
+    }
+
+    .header-progress {
+      position: absolute;
+      left: 0;
+      bottom: -1px;
+      height: 1px;
+      width: 0;
+      background: var(--accent);
+      transition: width 0.24s linear, opacity 0.4s ease;
+    }
+
+    .header-progress.idle {
+      opacity: 0;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: clamp(18px, 3vw, 40px);
+      padding-top: 8px;
+    }
+
+    .disk {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .disk-bar {
+      position: relative;
+      width: 96px;
+      height: 2px;
+      background: var(--line);
+      overflow: hidden;
+    }
+
+    .disk-bar i {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 0;
+      background: var(--ink);
+      transition: width 0.9s var(--ease), background 0.4s ease;
+    }
+
+    .disk.hot .disk-bar i {
+      background: var(--accent);
+    }
+
+    .disk-num {
+      color: var(--muted);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .identity {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .identity-name {
+      padding: 4px 0;
+      border-radius: 0;
+      background: transparent;
+      font-family: var(--serif);
+      font-size: 19px;
+      transition: color 0.2s ease, transform 0.2s ease;
+    }
+
+    .identity-name::after {
+      margin-left: 7px;
+      color: var(--muted);
+      content: "▾";
+      font-size: 10px;
+      vertical-align: 2px;
+    }
+
+    .identity-name:hover {
+      color: var(--accent);
+    }
+
+    .identity-menu {
+      position: absolute;
+      top: calc(100% + 12px);
+      right: 0;
+      z-index: 40;
+      min-width: 160px;
+      padding: 6px 0;
+      background: var(--surface);
+      border: 1px solid var(--line-strong);
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-6px);
+      transition:
+        opacity 0.28s var(--ease),
+        transform 0.28s var(--ease),
+        visibility 0s linear 0.28s;
+    }
+
+    .identity-menu.open {
+      visibility: visible;
+      opacity: 1;
+      transform: translateY(0);
+      transition-delay: 0s;
+    }
+
+    .identity-menu button {
+      display: block;
+      width: 100%;
+      padding: 9px 20px;
+      background: transparent;
+      text-align: left;
+      font-size: 13px;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .identity-menu button:hover {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .identity-menu .menu-sep {
+      height: 1px;
+      margin: 6px 0;
+      background: var(--line);
+    }
+
+    .text-action {
+      padding: 8px 0;
+      border-radius: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+      transition: color 0.2s ease, transform 0.2s ease;
+    }
+
+    .text-action:hover {
+      color: var(--accent);
+    }
+
+    .workspace-shell {
+      display: grid;
+      grid-template-columns: minmax(250px, 0.34fr) minmax(620px, 1fr);
+      gap: clamp(28px, 5vw, 84px);
+      max-width: 1480px;
+      margin: 0 auto;
+      padding-top: clamp(28px, 5vh, 54px);
+    }
+
+    .work-area {
+      grid-column: 2;
+      min-width: 0;
+      transition: opacity 0.3s var(--ease);
+    }
+
+    .workspace-shell.switching .work-area {
+      opacity: 0.15;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 30px;
+      margin-bottom: 28px;
+    }
+
+    .tab {
+      position: relative;
+      padding: 0 0 11px;
+      border-radius: 0;
+      background: transparent;
+      color: var(--muted);
+      transition: color 0.25s ease, transform 0.2s ease;
+    }
+
+    .tab::after {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      height: 1px;
+      background: var(--accent);
+      content: "";
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.45s var(--ease);
+    }
+
+    .tab.active {
+      color: var(--ink);
+    }
+
+    .tab.active::after {
+      transform: scaleX(1);
+    }
+
+    .tab-count {
+      margin-left: 7px;
+      color: var(--muted);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .panel-wrap {
+      position: relative;
+      min-height: 540px;
+    }
+
+    .panel {
+      position: absolute;
+      inset: 0;
+      visibility: hidden;
+      opacity: 0;
+      transform: translateX(18px);
+      transition:
+        opacity 0.38s var(--ease),
+        transform 0.48s var(--ease),
+        visibility 0s linear 0.48s;
+    }
+
+    .panel.active {
+      position: relative;
+      visibility: visible;
+      opacity: 1;
+      transform: translateX(0);
+      transition-delay: 0s;
+    }
+
+    .section-title {
+      margin: 0 0 7px;
+      font-family: var(--serif);
+      font-size: clamp(29px, 3vw, 44px);
+      font-weight: 400;
+      line-height: 1.12;
+    }
+
+    .section-description {
+      max-width: 520px;
+      margin: 0 0 28px;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .clipboard-editor {
+      position: relative;
+      border-top: 1px solid var(--line-strong);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .clipboard-editor textarea {
+      display: block;
+      width: 100%;
+      min-height: 260px;
+      resize: vertical;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      padding: 22px 126px 22px 0;
+      font-size: 16px;
+      line-height: 1.8;
+    }
+
+    .clipboard-editor textarea:focus {
+      outline: 0;
+    }
+
+    .editor-actions {
+      position: absolute;
+      top: 18px;
+      right: 0;
+      display: flex;
+      gap: 16px;
+    }
+
+    .clip-meta {
+      min-height: 16px;
+      margin-top: 10px;
+      color: var(--muted);
+      text-align: right;
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .feedback {
+      min-height: 22px;
+      margin-top: 14px;
+      color: var(--success);
+      font-size: 12px;
+      opacity: 0;
+      transform: translateY(-4px);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    .feedback.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .upload-zone {
+      display: grid;
+      min-height: 210px;
+      place-items: center;
+      margin-top: 44px;
+      border: 1px dashed var(--line-strong);
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.24);
+      text-align: center;
+      transition: border-color 0.25s ease, background 0.25s ease, transform 0.25s ease;
+    }
+
+    .upload-zone:hover,
+    .upload-zone.dragging {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .upload-zone.dragging {
+      transform: scale(0.995);
+    }
+
+    .upload-trigger {
+      padding: 0;
+      border-bottom: 1px solid currentColor;
+      border-radius: 0;
+      background: transparent;
+      color: var(--accent);
+    }
+
+    .upload-title {
+      margin: 0 0 10px;
+      font-family: var(--serif);
+      font-size: 24px;
+    }
+
+    .upload-hint {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .queue-wrap {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 0.6s var(--ease);
+    }
+
+    .queue-wrap.open {
+      grid-template-rows: 1fr;
+    }
+
+    .queue-inner {
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .queue-list {
+      margin-top: 34px;
+      border-top: 1px solid var(--line-strong);
+    }
+
+    .qrow {
+      padding: 15px 0 17px;
+      border-bottom: 1px solid var(--line);
+      opacity: 1;
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+
+    .qrow.leaving {
+      opacity: 0;
+      transform: translateX(12px);
+    }
+
+    .q-top {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    .q-name {
+      overflow: hidden;
+      min-width: 0;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .q-name small {
+      margin-left: 10px;
+      color: var(--muted);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .q-pct {
+      flex: none;
+      font-family: var(--serif);
+      font-size: 21px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .q-meta {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .q-state {
+      color: var(--success);
+    }
+
+    .qbar {
+      position: relative;
+      height: 2px;
+      margin-top: 9px;
+      background: var(--line);
+      overflow: hidden;
+    }
+
+    .qbar i {
+      position: absolute;
+      inset: 0;
+      background: var(--ink);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.24s linear;
+    }
+
+    .qbar i.verify {
+      animation: q-flash 0.9s var(--ease);
+    }
+
+    .qrow.reject .q-pct {
+      color: var(--error);
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+    }
+
+    .qrow.reject .q-meta {
+      color: var(--error);
+    }
+
+    .qrow.reject .qbar {
+      display: none;
+    }
+
+    @keyframes q-flash {
+      0% {
+        background: var(--ink);
+      }
+      35% {
+        background: var(--accent);
+      }
+      100% {
+        background: var(--ink);
+      }
+    }
+
+    .search-wrap {
+      position: relative;
+      max-width: 360px;
+      margin: 0 0 30px auto;
+    }
+
+    .search-wrap label {
+      position: absolute;
+      top: 10px;
+      left: 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .search-input {
+      height: 38px;
+      padding: 0 0 0 46px;
+    }
+
+    .file-list {
+      border-top: 1px solid var(--line-strong);
+    }
+
+    .file-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 100px 86px;
+      gap: 24px;
+      align-items: center;
+      min-height: 74px;
+      border-bottom: 1px solid var(--line);
+      animation: file-in 0.5s var(--ease) both;
+    }
+
+    .file-row.removing {
+      opacity: 0;
+      transform: translateX(12px);
+      transition: opacity 0.28s ease, transform 0.28s ease;
+    }
+
+    .file-name {
+      overflow: hidden;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      text-align: left;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 15px;
+      transition: color 0.2s ease;
+    }
+
+    .file-name:hover {
+      color: var(--accent);
+    }
+
+    .file-hash {
+      margin-top: 3px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 10.5px;
+      letter-spacing: 0.02em;
+      text-align: left;
+    }
+
+    .file-size,
+    .file-date {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .file-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .file-row:hover .file-actions,
+    .file-row:focus-within .file-actions {
+      opacity: 1;
+    }
+
+    .icon-action {
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      border-radius: 2px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 18px;
+      transition: color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+    }
+
+    .icon-action:hover {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .empty-state {
+      display: none;
+      padding: 80px 0;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .empty-state.show {
+      display: block;
+    }
+
+    .aside {
+      position: relative;
+      grid-column: 1;
+      grid-row: 1;
+      min-height: 560px;
+      padding-top: 0;
+    }
+
+    .aside-note {
+      position: relative;
+      z-index: 2;
+      width: 230px;
+      margin-left: 0;
+      color: var(--muted);
+      font-family: var(--serif);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .aside-rule {
+      width: 42px;
+      height: 1px;
+      margin: 0 0 18px;
+      background: var(--accent);
+    }
+
+    .scrim {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(32, 33, 31, 0.38);
+      opacity: 0;
+      visibility: hidden;
+      transition:
+        opacity 0.4s var(--ease),
+        visibility 0s linear 0.4s;
+    }
+
+    .scrim.open {
+      visibility: visible;
+      opacity: 1;
+      transition-delay: 0s;
+    }
+
+    .dlg {
+      position: relative;
+      width: min(440px, 92vw);
+      padding: 34px 38px 28px;
+      background: var(--paper);
+      border: 1px solid var(--line-strong);
+      transform: translateY(14px) scale(0.985);
+      transition: transform 0.45s var(--ease);
+    }
+
+    .scrim.open .dlg {
+      transform: translateY(0) scale(1);
+    }
+
+    .dlg-x {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+    }
+
+    .dlg h3 {
+      margin: 0 0 4px;
+      font-family: var(--serif);
+      font-size: 22px;
+      font-weight: 400;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }
+
+    .dlg-sub {
+      margin: 0 0 20px;
+      color: var(--muted);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .dlg dl {
+      margin: 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .dlg dt {
+      padding: 12px 0 3px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .dlg dd {
+      margin: 0 0 4px;
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .dlg .hash-value {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      line-height: 1.7;
+      overflow-wrap: anywhere;
+    }
+
+    .dlg-note {
+      margin: 16px 0 0;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.65;
+    }
+
+    .dlg-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 18px;
+      margin-top: 24px;
+    }
+
+    #toast {
+      position: fixed;
+      left: 50%;
+      bottom: 30px;
+      z-index: 70;
+      padding: 10px 24px;
+      background: var(--ink);
+      color: #f8f8f5;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      opacity: 0;
+      transform: translate(-50%, 14px);
+      transition: opacity 0.35s var(--ease), transform 0.35s var(--ease);
+      pointer-events: none;
+    }
+
+    #toast.show {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    .app.logged-in .login-view {
+      visibility: hidden;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(-26px);
+    }
+
+    .app.logged-in .login-copy {
+      opacity: 0;
+      transform: translateY(-18px);
+    }
+
+    .app.logged-in .workspace-view {
+      visibility: visible;
+      pointer-events: auto;
+      opacity: 1;
+      transform: translateY(0);
+      transition-delay: 0.28s;
+    }
+
+    .app.logged-in .portrait {
+      opacity: 0.3;
+      transform: translate(-4vw, 8vh) scale(0.9);
+    }
+
+    .app.logged-in .art-credit {
+      opacity: 0.55;
+    }
+
+    @keyframes file-in {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 980px) {
+      .login-main {
+        width: 49vw;
+      }
+
+      .portrait {
+        left: -110px;
+        width: min(62vw, 620px);
+        opacity: 0.82;
+      }
+
+      .workspace-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .work-area {
+        grid-column: 1;
+      }
+
+      .aside {
+        display: none;
+      }
+
+      .workspace-view {
+        overflow-y: auto;
+      }
+
+      .app.logged-in .portrait {
+        opacity: 0.16;
+      }
+    }
+
+    @media (max-width: 680px) {
+      .login-view {
+        min-height: 100dvh;
+        padding: 24px 20px;
+      }
+
+      .brand-mark {
+        font-size: 52px;
+      }
+
+      .portrait {
+        left: -126px;
+        bottom: 14vh;
+        width: 360px;
+        height: 64dvh;
+        opacity: 0.18;
+      }
+
+      .login-main {
+        align-items: flex-end;
+        width: 100%;
+        padding: 24px 0 8vh;
+      }
+
+      .login-copy {
+        width: 88%;
+        margin-left: auto;
+      }
+
+      .login-title {
+        max-width: 310px;
+        margin-bottom: 36px;
+        font-size: clamp(34px, 10.5vw, 42px);
+      }
+
+      .login-form {
+        max-width: none;
+      }
+
+      .login-footnote {
+        width: 88%;
+      }
+
+      .workspace-view {
+        padding: 18px 18px 28px;
+      }
+
+      .workspace-header {
+        min-height: 62px;
+      }
+
+      .workspace-header .brand-mark {
+        font-size: 46px;
+      }
+
+      .header-right {
+        gap: 14px;
+        padding-top: 6px;
+      }
+
+      .disk-bar {
+        width: 56px;
+      }
+
+      .identity {
+        gap: 10px;
+      }
+
+      .identity-name {
+        font-size: 17px;
+      }
+
+      .workspace-shell {
+        display: block;
+        padding-top: 26px;
+      }
+
+      .panel-wrap {
+        min-height: 620px;
+      }
+
+      .section-title {
+        font-size: 32px;
+      }
+
+      .section-description {
+        margin-bottom: 22px;
+        font-size: 14px;
+      }
+
+      .clipboard-editor textarea {
+        min-height: 230px;
+        padding: 66px 0 18px;
+      }
+
+      .editor-actions {
+        top: 14px;
+        left: 0;
+        right: auto;
+      }
+
+      .upload-zone {
+        min-height: 170px;
+        margin-top: 30px;
+      }
+
+      .queue-list {
+        margin-top: 26px;
+      }
+
+      .q-pct {
+        font-size: 18px;
+      }
+
+      .search-wrap {
+        max-width: none;
+        margin-top: 12px;
+      }
+
+      .file-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+        padding: 12px 0;
+      }
+
+      .file-size,
+      .file-date {
+        grid-column: 1;
+      }
+
+      .file-actions {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+        opacity: 1;
+      }
+
+      .dlg {
+        padding: 26px 24px 22px;
+      }
+
+      .art-credit {
+        display: none;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        transition-delay: 0s !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app" id="app">
+    <div class="grain" aria-hidden="true"></div>
+
+    <figure class="portrait" aria-hidden="true">
+      <img src="madame-x-cutout.png" alt="">
+    </figure>
+
+    <a
+      class="art-credit"
+      href="https://commons.wikimedia.org/wiki/File:Madame_X_(Madame_Pierre_Gautreau),_1883-84,_Metropolitan_Museum_of_Art.jpg"
+      target="_blank"
+      rel="noreferrer"
+    >
+      John Singer Sargent, Madame X
+    </a>
+
+    <section class="login-view" aria-labelledby="login-title">
+      <header>
+        <span class="brand" aria-label="QFR, Quick Files Relay">
+          <span class="brand-mark">QFR</span>
+          <span class="brand-name">quick files relay</span>
+        </span>
+      </header>
+
+      <div class="login-main">
+        <div class="login-copy">
+          <h1 class="login-title" id="login-title">把文件和文字，<br>递给<em>身边的人</em>。</h1>
+          <form class="login-form" id="loginForm" novalidate>
+            <div class="field">
+              <label for="username">你的名字</label>
+              <input
+                class="name-input"
+                id="username"
+                name="username"
+                type="text"
+                autocomplete="off"
+                maxlength="32"
+                placeholder="输入后进入"
+                aria-describedby="loginError"
+              >
+            </div>
+            <p class="form-error" id="loginError" role="alert">请输入一个名字。</p>
+            <button class="primary-action" type="submit">进入</button>
+          </form>
+        </div>
+      </div>
+
+      <p class="login-footnote">仅供可信局域网使用。名字只用于区分各自的剪切板和文件。</p>
+    </section>
+
+    <section class="workspace-view" aria-label="QFR 工作台" aria-hidden="true" tabindex="-1">
+      <header class="workspace-header">
+        <button class="brand" id="brandHome" type="button" aria-label="返回登录页">
+          <span class="brand-mark">QFR</span>
+          <span class="brand-name">quick files relay</span>
+        </button>
+        <div class="header-right">
+          <div class="disk" id="diskWidget" title="磁盘余量">
+            <div class="disk-bar" aria-hidden="true"><i id="diskFill"></i></div>
+            <span class="disk-num" id="diskNum">-- / -- GB</span>
+          </div>
+          <div class="identity">
+            <button class="identity-name" id="userMenuButton" type="button" aria-haspopup="menu" aria-expanded="false">访客</button>
+            <div class="identity-menu" id="identityMenu" role="menu"></div>
+            <button class="text-action" id="logoutButton" type="button">退出</button>
+          </div>
+        </div>
+        <div class="header-progress idle" id="headerProgress" aria-hidden="true"></div>
+      </header>
+
+      <div class="workspace-shell" id="workspaceShell">
+        <div class="work-area">
+          <nav class="tabs" aria-label="工作区">
+            <button class="tab active" type="button" data-panel="clipboardPanel" aria-selected="true">剪切板</button>
+            <button class="tab" type="button" data-panel="filesPanel" aria-selected="false">文件<span class="tab-count" id="fileCount">0</span></button>
+          </nav>
+
+          <div class="panel-wrap">
+            <section class="panel active" id="clipboardPanel" aria-labelledby="clipboardTitle">
+              <h2 class="section-title" id="clipboardTitle">今天要传什么？</h2>
+              <p class="section-description">文字会保存在当前名字下。复制、修改，再交给同一局域网里的另一台设备。</p>
+
+              <div class="clipboard-editor">
+                <textarea id="clipboardText" aria-label="剪切板内容" placeholder="在这里写下文字、链接或临时笔记。"></textarea>
+                <div class="editor-actions">
+                  <button class="text-action" id="copyButton" type="button">复制</button>
+                  <button class="text-action" id="saveButton" type="button">保存</button>
+                </div>
+              </div>
+              <div class="clip-meta" id="clipMeta"></div>
+              <div class="feedback" id="clipboardFeedback" role="status" aria-live="polite"></div>
+
+              <div class="upload-zone" id="uploadZone">
+                <div>
+                  <p class="upload-title">拖入文件，或 <button class="upload-trigger" id="uploadButton" type="button">选择文件</button></p>
+                  <p class="upload-hint">单文件最大 30 GB，多文件自动排队，空间不足会在上传前拦截。</p>
+                </div>
+                <input id="fileInput" type="file" multiple hidden>
+              </div>
+
+              <div class="queue-wrap" id="queueWrap" aria-live="polite">
+                <div class="queue-inner">
+                  <div class="queue-list" id="queueList"></div>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel" id="filesPanel" aria-labelledby="filesTitle">
+              <h2 class="section-title" id="filesTitle">你的文件</h2>
+              <p class="section-description">点击文件名查看校验码。下载或清理当前名字下的文件。</p>
+
+              <div class="search-wrap">
+                <label for="fileSearch">搜索</label>
+                <input class="search-input" id="fileSearch" type="search" placeholder="文件名">
+              </div>
+
+              <div class="file-list" id="fileList"></div>
+              <div class="empty-state" id="emptyState">没有找到文件。</div>
+            </section>
+          </div>
+        </div>
+
+        <aside class="aside" aria-label="使用提示">
+          <div class="aside-rule"></div>
+          <p class="aside-note">欲寄彩笺兼尺素，山长水阔知何处？</p>
+        </aside>
+      </div>
+    </section>
+
+    <div class="scrim" id="scrim" aria-hidden="true">
+      <div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dlgTitle" id="dlg">
+        <button class="icon-action dlg-x" id="dlgClose" type="button" aria-label="关闭">×</button>
+        <h3 id="dlgTitle"></h3>
+        <p class="dlg-sub" id="dlgSub"></p>
+        <dl>
+          <dt>SHA-256</dt>
+          <dd class="hash-value" id="dlgHash"></dd>
+          <dt>大小</dt>
+          <dd id="dlgSize"></dd>
+          <dt>时间</dt>
+          <dd id="dlgDate"></dd>
+        </dl>
+        <p class="dlg-note">接收端把文件拖回本页，即可重新计算并核对校验码（约 43 MB/s）。</p>
+        <div class="dlg-actions">
+          <button class="text-action" id="dlgCopyHash" type="button">复制校验码</button>
+          <button class="text-action" id="dlgDownload" type="button">下载</button>
+          <button class="text-action" id="dlgDelete" type="button">删除</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+  </main>
+
+  <script>
+    const KB = 1024;
+    const MB = 1024 * 1024;
+    const GB = 1024 * 1024 * 1024;
+    const SINGLE_FILE_LIMIT = 30 * GB;
+    const DISK_TOTAL = 101.0 * GB;
+    const DISK_BASE_USED = 43.8 * GB;
+    const DISPLAY_SPEED = 112.6; // MB/s，千兆局域网实测档
+
+    const app = document.getElementById('app');
+    const loginForm = document.getElementById('loginForm');
+    const usernameInput = document.getElementById('username');
+    const loginError = document.getElementById('loginError');
+    const workspace = document.querySelector('.workspace-view');
+    const workspaceShell = document.getElementById('workspaceShell');
+    const identityName = document.getElementById('userMenuButton');
+    const identityMenu = document.getElementById('identityMenu');
+    const feedback = document.getElementById('clipboardFeedback');
+    const clipboardText = document.getElementById('clipboardText');
+    const clipMeta = document.getElementById('clipMeta');
+    const fileList = document.getElementById('fileList');
+    const emptyState = document.getElementById('emptyState');
+    const fileSearch = document.getElementById('fileSearch');
+    const fileInput = document.getElementById('fileInput');
+    const uploadZone = document.getElementById('uploadZone');
+    const fileCount = document.getElementById('fileCount');
+    const queueWrap = document.getElementById('queueWrap');
+    const queueList = document.getElementById('queueList');
+    const diskFill = document.getElementById('diskFill');
+    const diskNum = document.getElementById('diskNum');
+    const diskWidget = document.getElementById('diskWidget');
+    const headerProgress = document.getElementById('headerProgress');
+    const toast = document.getElementById('toast');
+    const scrim = document.getElementById('scrim');
+
+    const DEMO_BATCH = [
+      { name: '印刷终稿-0920.pdf', bytes: 48.2 * MB },
+      { name: '车间巡检视频.mp4', bytes: 1.38 * GB },
+      { name: '系统镜像_完整备份.iso', bytes: 31.5 * GB }
+    ];
+
+    const USERS = {
+      用户: {
+        clipboard: 'https://example.local/share/meeting-notes\n\n明天下午三点，在会议室同步传感器数据。',
+        saved: '14:02',
+        files: [
+          { name: 'Q3-实验记录.pdf', bytes: 18.4 * MB, date: '今天 14:22', hash: 'bffe6b8aa87c19d305f2c6d4e7a80913ab52c7fe64d0a91b8e3f5c72d1a4667' },
+          { name: '现场照片.zip', bytes: 264 * MB, date: '今天 11:08', hash: '9698ed7ff7021caab4d3e8f6510a97c2de44b8f9103fda6e72c5b0819d447a6f' },
+          { name: 'handoff-notes.txt', bytes: 6 * KB, date: '昨天 19:36', hash: '3ce7a10b89d4f26580ef7c319b2ad4f60918c7e2b5d301fa6849c2e7d5b13a80' },
+          { name: 'sensor-export.csv', bytes: 42.8 * MB, date: '昨天 17:12', hash: '7f2c91e0d5a38b6f4c170e98d2a5b83f6e0914d7c2ab8f305e6d9c18a4f72b3e' }
+        ]
+      },
+      同事: {
+        clipboard: '下周三要带转接头，别忘了。\n\n分享链接失效后就删掉这一段。',
+        saved: '12:47',
+        files: [
+          { name: '读书笔记-九月.md', bytes: 14 * KB, date: '今天 09:15', hash: 'a41d08c73e59b26f8d0a1c45e7b92d36f0815c7ae29b3d640f8c2a91e5b7d036' },
+          { name: '会议录音.m4a', bytes: 86.2 * MB, date: '昨天 16:40', hash: 'd9b30f26a7e58c14d0b29e6f3a8c517e02d94b6af70c25e18d3f9a46b2c05e71' }
+        ]
+      }
+    };
+
+    let currentUser = null;
+    let diskUsed = DISK_BASE_USED;
+    let pendingBytes = 0;
+    let demoPlayed = false;
+
+    function formatSize(bytes) {
+      if (bytes < KB) return `${Math.round(bytes)} B`;
+      if (bytes < MB) return `${Math.max(1, Math.round(bytes / KB))} KB`;
+      if (bytes < GB) return `${(bytes / MB).toFixed(1)} MB`;
+      return `${(bytes / GB).toFixed(2)} GB`;
+    }
+
+    function formatEta(seconds) {
+      seconds = Math.max(1, Math.round(seconds));
+      if (seconds < 60) return `剩余 ${seconds} 秒`;
+      const m = Math.floor(seconds / 60);
+      const s = seconds % 60;
+      return `剩余 ${m} 分 ${String(s).padStart(2, '0')} 秒`;
+    }
+
+    function nowLabel() {
+      const now = new Date();
+      return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    }
+
+    function randomHash() {
+      const bytes = new Uint8Array(32);
+      crypto.getRandomValues(bytes);
+      return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function shortHash(hash) {
+      return `SHA-256 ${hash.slice(0, 8)}…${hash.slice(-4)}`;
+    }
+
+    let toastTimer = 0;
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      window.clearTimeout(toastTimer);
+      toastTimer = window.setTimeout(() => toast.classList.remove('show'), 2200);
+    }
+
+    function showFeedback(message) {
+      feedback.textContent = message;
+      feedback.classList.add('show');
+      window.clearTimeout(showFeedback.timer);
+      showFeedback.timer = window.setTimeout(() => feedback.classList.remove('show'), 1800);
+    }
+
+    function updateDisk() {
+      const ratio = Math.min(1, diskUsed / DISK_TOTAL);
+      diskFill.style.width = `${(ratio * 100).toFixed(1)}%`;
+      diskNum.textContent = `${(diskUsed / GB).toFixed(1)} / ${(DISK_TOTAL / GB).toFixed(1)} GB`;
+      diskWidget.classList.toggle('hot', ratio >= 0.8);
+    }
+
+    function updateHeaderProgress(ratio) {
+      if (ratio > 0 && ratio < 1) {
+        headerProgress.classList.remove('idle');
+        headerProgress.style.width = `${(ratio * 100).toFixed(1)}%`;
+      } else {
+        headerProgress.classList.add('idle');
+        window.setTimeout(() => { headerProgress.style.width = '0'; }, 450);
+      }
+    }
+
+    function renderClipMeta() {
+      const user = USERS[currentUser];
+      if (!user) return;
+      clipMeta.textContent = user.saved
+        ? `上次保存 ${user.saved} · ${clipboardText.value.length} 字`
+        : '尚未保存';
+    }
+
+    function renderFiles() {
+      const user = USERS[currentUser];
+      const query = fileSearch.value.trim().toLowerCase();
+      const visible = user.files.filter((file) => file.name.toLowerCase().includes(query));
+      fileList.replaceChildren();
+
+      visible.forEach((file, index) => {
+        const row = document.createElement('div');
+        row.className = 'file-row';
+        row.style.animationDelay = `${index * 45}ms`;
+
+        const info = document.createElement('div');
+        const name = document.createElement('button');
+        const hashLine = document.createElement('div');
+        const date = document.createElement('div');
+        name.className = 'file-name';
+        name.type = 'button';
+        name.textContent = file.name;
+        name.title = '查看校验码';
+        name.addEventListener('click', () => openDetail(file));
+        hashLine.className = 'file-hash';
+        hashLine.textContent = shortHash(file.hash);
+        date.className = 'file-date';
+        date.textContent = file.date;
+        info.append(name, hashLine, date);
+
+        const size = document.createElement('div');
+        size.className = 'file-size';
+        size.textContent = formatSize(file.bytes);
+
+        const actions = document.createElement('div');
+        actions.className = 'file-actions';
+
+        const download = document.createElement('button');
+        download.className = 'icon-action';
+        download.type = 'button';
+        download.textContent = '↓';
+        download.title = `下载 ${file.name}`;
+        download.setAttribute('aria-label', `下载 ${file.name}`);
+        download.addEventListener('click', () => downloadDemoFile(file));
+
+        const remove = document.createElement('button');
+        remove.className = 'icon-action';
+        remove.type = 'button';
+        remove.textContent = '×';
+        remove.title = `删除 ${file.name}`;
+        remove.setAttribute('aria-label', `删除 ${file.name}`);
+        remove.addEventListener('click', () => removeFile(file, row));
+
+        actions.append(download, remove);
+        row.append(info, size, actions);
+        fileList.append(row);
+      });
+
+      const noneAtAll = user.files.length === 0;
+      emptyState.textContent = noneAtAll
+        ? '还没有文件。回到剪切板页，拖入第一个文件。'
+        : '没有找到文件。';
+      emptyState.classList.toggle('show', visible.length === 0);
+      fileCount.textContent = String(user.files.length);
+    }
+
+    function downloadDemoFile(file) {
+      const blob = new Blob([`QFR demo file: ${file.name}\nSHA-256: ${file.hash}\n`], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = file.name;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function removeFile(file, row) {
+      closeDetail();
+      const user = USERS[currentUser];
+      const target = row || fileList.querySelector('.file-row');
+      if (target) {
+        target.classList.add('removing');
+        window.setTimeout(() => {
+          user.files = user.files.filter((item) => item !== file);
+          diskUsed = Math.max(0, diskUsed - file.bytes);
+          updateDisk();
+          renderFiles();
+        }, 280);
+      } else {
+        user.files = user.files.filter((item) => item !== file);
+        diskUsed = Math.max(0, diskUsed - file.bytes);
+        updateDisk();
+        renderFiles();
+      }
+      showToast(`已删除 ${file.name}`);
+    }
+
+    /* ---------- 传输队列 ---------- */
+
+    const jobs = [];
+    let activeJob = null;
+    let loopRunning = false;
+    let lastTick = 0;
+
+    function queueOpen(hasRows) {
+      queueWrap.classList.toggle('open', hasRows);
+    }
+
+    function makeRow(name, bytes, rejected, reason) {
+      const row = document.createElement('div');
+      row.className = 'qrow';
+
+      const top = document.createElement('div');
+      top.className = 'q-top';
+      const nameEl = document.createElement('div');
+      nameEl.className = 'q-name';
+      nameEl.textContent = name;
+      const sizeEl = document.createElement('small');
+      sizeEl.textContent = formatSize(bytes);
+      nameEl.appendChild(sizeEl);
+      const pct = document.createElement('div');
+      pct.className = 'q-pct';
+      top.append(nameEl, pct);
+
+      const meta = document.createElement('div');
+      meta.className = 'q-meta';
+      const left = document.createElement('span');
+      const right = document.createElement('span');
+      meta.append(left, right);
+
+      const bar = document.createElement('div');
+      bar.className = 'qbar';
+      const fill = document.createElement('i');
+      bar.appendChild(fill);
+
+      row.append(top, meta, bar);
+
+      if (rejected) {
+        row.classList.add('reject');
+        pct.textContent = '已拦截';
+        left.textContent = reason;
+        right.textContent = '';
+      }
+
+      queueList.appendChild(row);
+      queueOpen(true);
+      return { row, pct, fill, left, right };
+    }
+
+    function dismissRow(row) {
+      row.classList.add('leaving');
+      window.setTimeout(() => {
+        row.remove();
+        if (!queueList.children.length) queueOpen(false);
+      }, 380);
+    }
+
+    function enqueue(list) {
+      list.forEach((file) => {
+        const bytes = file.bytes;
+        if (bytes > SINGLE_FILE_LIMIT) {
+          const ui = makeRow(file.name, bytes, true, '超过单文件 30 GB 上限');
+          window.setTimeout(() => dismissRow(ui.row), 3200);
+          showToast(`已拦截 ${file.name}：超过单文件 30 GB 上限`);
+          return;
+        }
+        if (diskUsed + pendingBytes + bytes > DISK_TOTAL) {
+          const remain = Math.max(0, (DISK_TOTAL - diskUsed - pendingBytes) / GB);
+          const ui = makeRow(file.name, bytes, true, `磁盘余量不足（剩 ${remain.toFixed(1)} GB）`);
+          window.setTimeout(() => dismissRow(ui.row), 3200);
+          showToast(`已拦截 ${file.name}：磁盘余量不足`);
+          return;
+        }
+        pendingBytes += bytes;
+        jobs.push({
+          owner: currentUser,
+          name: file.name,
+          bytes,
+          sent: 0,
+          hash: file.hash || randomHash(),
+          speed: DISPLAY_SPEED,
+          ui: makeRow(file.name, bytes)
+        });
+      });
+      startLoop();
+    }
+
+    function startLoop() {
+      if (loopRunning) return;
+      loopRunning = true;
+      lastTick = performance.now();
+      requestAnimationFrame(tick);
+    }
+
+    function tick(now) {
+      const dt = Math.min(0.1, (now - lastTick) / 1000);
+      lastTick = now;
+
+      if (!activeJob) {
+        activeJob = jobs.shift() || null;
+        if (activeJob) beginJob(activeJob);
+      }
+
+      if (activeJob) {
+        stepJob(activeJob, dt);
+        requestAnimationFrame(tick);
+        return;
+      }
+
+      loopRunning = false;
+      updateHeaderProgress(0);
+    }
+
+    function beginJob(job) {
+      job.wallTotal = Math.min(6.5, Math.max(2.8, job.bytes / (job.speed * MB)));
+      job.ui.left.textContent = `${DISPLAY_SPEED.toFixed(1)} MB/s`;
+    }
+
+    function stepJob(job, dt) {
+      job.sent = Math.min(job.bytes, job.sent + (job.bytes / job.wallTotal) * dt);
+      const ratio = job.sent / job.bytes;
+      job.speed = DISPLAY_SPEED * (0.9 + 0.2 * Math.random());
+
+      job.ui.fill.style.transform = `scaleX(${ratio})`;
+      job.ui.pct.textContent = `${Math.floor(ratio * 100)}%`;
+      job.ui.left.textContent = `${job.speed.toFixed(1)} MB/s`;
+      job.ui.right.textContent = formatEta((job.bytes - job.sent) / (job.speed * MB));
+      updateHeaderProgress(ratio);
+
+      if (job.sent >= job.bytes) finishJob(job);
+    }
+
+    function finishJob(job) {
+      activeJob = null;
+      job.ui.fill.style.transform = 'scaleX(1)';
+      job.ui.fill.classList.add('verify');
+      job.ui.pct.textContent = '100%';
+      job.ui.left.innerHTML = '<span class="q-state">校验 SHA-256</span>';
+      job.ui.right.textContent = '';
+
+      window.setTimeout(() => {
+        pendingBytes -= job.bytes;
+        diskUsed = Math.min(DISK_TOTAL, diskUsed + job.bytes);
+        updateDisk();
+
+        const entry = { name: job.name, bytes: job.bytes, date: `今天 ${nowLabel()}`, hash: job.hash };
+        USERS[job.owner].files.unshift(entry);
+        if (job.owner === currentUser) renderFiles();
+        showToast(`已接收 ${job.name} · ${formatSize(job.bytes)}`);
+        dismissRow(job.ui.row);
+      }, 900);
+    }
+
+    function addFiles(selectedFiles) {
+      const list = Array.from(selectedFiles).map((file) => ({ name: file.name, bytes: file.size }));
+      if (!list.length) return;
+      enqueue(list);
+    }
+
+    document.getElementById('uploadButton').addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+      addFiles(fileInput.files);
+      fileInput.value = '';
+    });
+
+    ['dragenter', 'dragover'].forEach((type) => {
+      uploadZone.addEventListener(type, (event) => {
+        event.preventDefault();
+        uploadZone.classList.add('dragging');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach((type) => {
+      uploadZone.addEventListener(type, (event) => {
+        event.preventDefault();
+        uploadZone.classList.remove('dragging');
+      });
+    });
+
+    uploadZone.addEventListener('drop', (event) => addFiles(event.dataTransfer.files));
+    fileSearch.addEventListener('input', renderFiles);
+
+    /* ---------- 文件详情弹窗 ---------- */
+
+    let detailFile = null;
+    let lastFocus = null;
+
+    function openDetail(file) {
+      detailFile = file;
+      lastFocus = document.activeElement;
+      document.getElementById('dlgTitle').textContent = file.name;
+      document.getElementById('dlgSub').textContent = `${formatSize(file.bytes)} · ${file.date}`;
+      document.getElementById('dlgHash').textContent = file.hash;
+      document.getElementById('dlgSize').textContent = formatSize(file.bytes);
+      document.getElementById('dlgDate').textContent = file.date;
+      scrim.classList.add('open');
+      scrim.setAttribute('aria-hidden', 'false');
+      window.setTimeout(() => document.getElementById('dlgClose').focus(), 60);
+    }
+
+    function closeDetail() {
+      if (!scrim.classList.contains('open')) return;
+      scrim.classList.remove('open');
+      scrim.setAttribute('aria-hidden', 'true');
+      detailFile = null;
+      if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
+    }
+
+    document.getElementById('dlgClose').addEventListener('click', closeDetail);
+    scrim.addEventListener('click', (event) => {
+      if (event.target === scrim) closeDetail();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closeDetail();
+        closeMenu();
+      }
+    });
+
+    document.getElementById('dlgCopyHash').addEventListener('click', () => {
+      if (!detailFile) return;
+      const helper = document.createElement('textarea');
+      helper.value = detailFile.hash;
+      document.body.appendChild(helper);
+      helper.select();
+      const copied = document.execCommand('copy');
+      helper.remove();
+      showToast(copied ? '已复制校验码。' : '请手动复制弹窗中的校验码。');
+    });
+
+    document.getElementById('dlgDownload').addEventListener('click', () => {
+      if (detailFile) downloadDemoFile(detailFile);
+    });
+
+    document.getElementById('dlgDelete').addEventListener('click', () => {
+      if (!detailFile) return;
+      const file = detailFile;
+      closeDetail();
+      removeFile(file, null);
+    });
+
+    /* ---------- 用户与切换 ---------- */
+
+    function buildMenu() {
+      identityMenu.replaceChildren();
+      Object.keys(USERS).forEach((name) => {
+        if (name === currentUser) return;
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.setAttribute('role', 'menuitem');
+        item.textContent = name;
+        item.addEventListener('click', () => {
+          closeMenu();
+          switchUser(name);
+        });
+        identityMenu.appendChild(item);
+      });
+      const sep = document.createElement('div');
+      sep.className = 'menu-sep';
+      identityMenu.appendChild(sep);
+      const fresh = document.createElement('button');
+      fresh.type = 'button';
+      fresh.setAttribute('role', 'menuitem');
+      fresh.textContent = '以新名字进入…';
+      fresh.addEventListener('click', () => {
+        closeMenu();
+        leaveWorkspace();
+      });
+      identityMenu.appendChild(fresh);
+    }
+
+    function closeMenu() {
+      identityMenu.classList.remove('open');
+      identityName.setAttribute('aria-expanded', 'false');
+    }
+
+    identityName.addEventListener('click', () => {
+      const open = identityMenu.classList.toggle('open');
+      identityName.setAttribute('aria-expanded', String(open));
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!identityMenu.classList.contains('open')) return;
+      if (!event.target.closest('.identity')) closeMenu();
+    });
+
+    function switchUser(name) {
+      workspaceShell.classList.add('switching');
+      window.setTimeout(() => {
+        currentUser = name;
+        loadUser(name);
+        workspaceShell.classList.remove('switching');
+        showToast(`已切换到 ${name}。`);
+      }, 300);
+    }
+
+    function loadUser(name) {
+      const user = USERS[name];
+      currentUser = name;
+      identityName.textContent = name;
+      clipboardText.value = user.clipboard;
+      fileSearch.value = '';
+      buildMenu();
+      renderClipMeta();
+      renderFiles();
+    }
+
+    /* ---------- 登录 / 退出 ---------- */
+
+    function enterWorkspace(name) {
+      if (!USERS[name]) {
+        USERS[name] = { clipboard: '', saved: null, files: [] };
+      }
+      loadUser(name);
+      loginError.classList.remove('show');
+      workspace.setAttribute('aria-hidden', 'false');
+      app.scrollTop = 0;
+      workspace.scrollTop = 0;
+      app.classList.add('logged-in');
+      window.setTimeout(() => {
+        workspace.focus({ preventScroll: true });
+        app.scrollTop = 0;
+        workspace.scrollTop = 0;
+      }, 720);
+      if (!demoPlayed && !new URLSearchParams(location.search).has('nodemo')) {
+        demoPlayed = true;
+        window.setTimeout(() => {
+          if (app.classList.contains('logged-in')) enqueue(DEMO_BATCH.map((f) => ({ ...f })));
+        }, 1600);
+      }
+    }
+
+    function leaveWorkspace() {
+      closeMenu();
+      app.scrollTop = 0;
+      app.classList.remove('logged-in');
+      workspace.setAttribute('aria-hidden', 'true');
+      window.setTimeout(() => {
+        usernameInput.focus({ preventScroll: true });
+        usernameInput.select();
+        app.scrollTop = 0;
+      }, 520);
+    }
+
+    loginForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const name = usernameInput.value.trim();
+      if (!name) {
+        loginError.classList.add('show');
+        usernameInput.focus();
+        return;
+      }
+      enterWorkspace(name);
+    });
+
+    usernameInput.addEventListener('input', () => loginError.classList.remove('show'));
+    document.getElementById('logoutButton').addEventListener('click', leaveWorkspace);
+    document.getElementById('brandHome').addEventListener('click', leaveWorkspace);
+
+    /* ---------- 剪切板 ---------- */
+
+    document.querySelectorAll('.tab').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach((item) => {
+          const selected = item === tab;
+          item.classList.toggle('active', selected);
+          item.setAttribute('aria-selected', String(selected));
+        });
+        document.querySelectorAll('.panel').forEach((panel) => {
+          panel.classList.toggle('active', panel.id === tab.dataset.panel);
+        });
+      });
+    });
+
+    document.getElementById('copyButton').addEventListener('click', () => {
+      clipboardText.focus();
+      clipboardText.select();
+      const copied = document.execCommand('copy');
+      showFeedback(copied ? '已复制到剪切板。' : '请使用浏览器复制命令。');
+      window.getSelection()?.removeAllRanges();
+    });
+
+    document.getElementById('saveButton').addEventListener('click', () => {
+      const user = USERS[currentUser];
+      user.clipboard = clipboardText.value;
+      user.saved = nowLabel();
+      renderClipMeta();
+      showFeedback('已保存。');
+    });
+
+    clipboardText.addEventListener('input', renderClipMeta);
+
+    /* ---------- 初始化 ---------- */
+
+    updateDisk();
+  </script>
+</body>
+</html>

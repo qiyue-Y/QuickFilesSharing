@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>消息快传 · 日与线</title>
+<style>
+:root{
+  --paper:#FAF9F6;
+  --ink:#191817;
+  --mut:rgba(25,24,23,.55);
+  --faint:rgba(25,24,23,.34);
+  --hair:rgba(25,24,23,.14);
+  --hair2:rgba(25,24,23,.26);
+  --seal:#B23B24;
+  --ease:cubic-bezier(.22,.8,.18,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--paper);color:var(--ink);
+  font-family:"Segoe UI Variable Display","Segoe UI","Microsoft YaHei UI","Microsoft YaHei",system-ui,sans-serif;
+  font-size:14px;line-height:1.65;-webkit-font-smoothing:antialiased;
+}
+.mono{font-family:"Cascadia Mono",Consolas,"SF Mono","Courier New",monospace;font-variant-numeric:tabular-nums}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+textarea{font:inherit;color:inherit;background:none;border:none;resize:none;outline:none}
+
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px clamp(24px,7vw,110px);border-bottom:1px solid var(--hair);
+}
+.brand{font-size:14px;letter-spacing:.14em;font-weight:600}
+.brand small{display:block;font-size:9px;letter-spacing:.3em;color:var(--faint);font-weight:400}
+.hright{display:flex;align-items:center;gap:22px;font-size:12px;color:var(--mut)}
+.hright button{color:var(--mut);letter-spacing:.06em}
+.hright button:hover{color:var(--ink)}
+.userwrap{position:relative}
+.userbtn{border:1px solid var(--hair2);padding:4px 12px;letter-spacing:.06em}
+.userbtn:hover{border-color:var(--ink)}
+.menu{position:absolute;right:0;top:34px;background:var(--paper);border:1px solid var(--hair2);min-width:120px;z-index:40}
+.menu button{display:block;width:100%;text-align:left;padding:8px 14px;font-size:13px}
+.menu button:hover{background:rgba(25,24,23,.05)}
+
+/* ================= 日与线：线=磁盘，日=今日活跃度 ================= */
+.horizon{position:relative;height:170px;margin:56px clamp(24px,7vw,110px) 8px;min-width:280px}
+.horizon .hlab{position:absolute;left:0;top:0;font-size:10px;letter-spacing:.28em;color:var(--faint)}
+.horizon .hnow{position:absolute;right:0;top:0;font-size:11px;color:var(--mut)}
+#trail{position:absolute;left:0;right:0;bottom:0;width:100%;height:150px}
+.hline{position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--hair2)}
+.hused{position:absolute;left:0;bottom:-1px;height:3px;background:var(--ink);transition:width .9s var(--ease)}
+#tick{position:absolute;bottom:0;width:1px;height:9px;background:var(--ink);transition:left .9s var(--ease)}
+#tickLab{position:absolute;bottom:14px;transform:translateX(-50%);font-size:10px;color:var(--mut);white-space:nowrap;transition:left .9s var(--ease)}
+#gnomon{position:absolute;bottom:0;width:1px;background:var(--hair2);transition:left .6s linear,height 1.2s var(--ease)}
+#sun{position:absolute;width:13px;height:13px;border-radius:50%;background:var(--seal);
+  transform:translate(-50%,50%);transition:left .6s linear,bottom 1.2s var(--ease);
+  box-shadow:0 0 0 5px rgba(178,59,36,.08)}
+#sunTime{position:absolute;bottom:-20px;transform:translateX(-50%);font-size:10px;color:var(--faint);transition:left .6s linear}
+.hticks{position:absolute;left:0;right:0;bottom:-22px;display:flex;justify-content:space-between;font-size:9px;color:var(--faint)}
+
+/* ================= 工作区 ================= */
+main{
+  display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);
+  gap:64px;padding:56px clamp(24px,7vw,110px) 40px;max-width:1440px;margin:0 auto;
+}
+.lab{font-size:10px;letter-spacing:.28em;color:var(--faint);text-transform:uppercase}
+.sec-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px}
+.meta{font-size:11px;color:var(--mut)}
+
+/* 剪切板：一张纸 + 黄铜长尾夹 */
+.sheet-wrap{position:relative;padding-top:16px}
+.clip{position:absolute;left:38px;top:-14px;width:56px;height:40px;z-index:5;
+  filter:drop-shadow(0 3px 3px rgba(20,16,8,.30));pointer-events:none}
+.clip i{position:absolute;display:block}
+.clip .cbody{left:2px;right:2px;top:15px;height:24px;
+  background:linear-gradient(180deg,#e9c988 0%,#c99b4e 45%,#8a612a 100%);
+  clip-path:polygon(16% 0,84% 0,100% 100%,0 100%)}
+.clip .cbody::after{content:'';position:absolute;left:12%;right:12%;top:4px;height:2px;background:rgba(255,250,235,.55)}
+.clip .h1,.clip .h2{width:15px;height:20px;border:2.5px solid #a3a8ad;border-bottom:none;
+  border-radius:8px 8px 0 0;top:0;background:transparent}
+.clip .h1{left:9px;transform:rotate(-9deg)}
+.clip .h2{right:9px;transform:rotate(9deg)}
+.sheet{border:1px solid var(--hair2);background:#FDFCFA;padding:26px 26px 20px;min-height:340px;display:flex;flex-direction:column}
+.sheet textarea{flex:1;font-size:14.5px;line-height:1.9;min-height:220px}
+.sheet-actions{display:flex;gap:10px;padding-top:16px;border-top:1px solid var(--hair)}
+.sheet-actions button{padding:7px 20px;border:1px solid var(--hair2);font-size:13px;letter-spacing:.08em;transition:border-color .2s,background .2s,color .2s}
+.sheet-actions button:hover{border-color:var(--ink)}
+.sheet-actions .primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.sheet-actions .primary:hover{background:#000}
+
+/* 投放区 / 队列 */
+.drop{border:1px dashed var(--hair2);padding:26px;text-align:center;font-size:13px;color:var(--mut);letter-spacing:.06em;cursor:pointer;transition:border-color .25s,color .25s,background .25s}
+.drop .sub{font-size:11px;color:var(--faint);margin-top:4px}
+.drop.hot{border-color:var(--ink);color:var(--ink);background:rgba(25,24,23,.03)}
+.qrow{padding:13px 2px;border-bottom:1px solid var(--hair)}
+.qtop{display:flex;justify-content:space-between;font-size:13px}
+.qtop .qpct{font-size:11px;color:var(--mut)}
+.qbar{height:2px;background:var(--hair);margin-top:9px}
+.qbar i{display:block;height:100%;background:var(--ink);transform:scaleX(0);transform-origin:left}
+.q-empty{font-size:12px;color:var(--faint);padding:13px 2px;border-bottom:1px solid var(--hair);letter-spacing:.08em}
+.speed{font-size:12px;color:var(--mut)}
+.speed b{font-size:34px;font-weight:200;color:var(--ink);letter-spacing:-.02em;margin-right:4px}
+
+/* 文件库 */
+.lib{margin-top:48px}
+.frow{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 2px;border-bottom:1px solid var(--hair)}
+.frow.out{transition:opacity .5s,transform .5s;opacity:0;transform:translateY(-6px)}
+.fname{font-size:14px;display:flex;align-items:center;gap:9px}
+.fmeta{font-size:11px;color:var(--mut);margin-top:2px}
+.fops{display:flex;gap:14px;font-size:12px;color:var(--mut);white-space:nowrap}
+.fops button{color:var(--mut);letter-spacing:.06em}
+.fops button:hover{color:var(--ink);text-decoration:underline;text-underline-offset:4px}
+.fops .del:hover{color:var(--seal)}
+.trace{display:inline-flex;align-items:center;opacity:.9;flex:none}
+
+footer{border-top:1px solid var(--hair);margin-top:56px;padding:14px clamp(24px,7vw,110px);
+  display:flex;justify-content:space-between;font-size:10px;letter-spacing:.2em;color:var(--faint)}
+
+/* 盖章 */
+.stamp{position:fixed;z-index:60;pointer-events:none;transform:translate(-50%,-50%);
+  animation:stampIn .48s cubic-bezier(.16,1.15,.3,1) both}
+.stamp::before{content:'';position:absolute;inset:-16px;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(25,24,23,.07),transparent)}
+.stamp.out{transition:opacity .4s,transform .4s;opacity:0;transform:translate(-50%,-50%) scale(.72) rotate(-4deg)}
+@keyframes stampIn{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(2.4) rotate(7deg)}
+  55%{opacity:1}
+  100%{opacity:.96;transform:translate(-50%,-50%) scale(1) rotate(-4deg)}
+}
+
+#toast{position:fixed;left:50%;bottom:34px;transform:translate(-50%,14px);opacity:0;
+  background:var(--ink);color:var(--paper);font-size:12px;letter-spacing:.1em;
+  padding:9px 22px;z-index:70;transition:opacity .3s,transform .3s;pointer-events:none}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+#scrim{position:fixed;inset:0;background:rgba(25,24,23,.4);z-index:80;display:flex;align-items:center;justify-content:center}
+#scrim[hidden]{display:none}
+.dlg{background:var(--paper);border:1px solid var(--ink);width:min(400px,90vw);padding:30px}
+.dlg h3{font-size:15px;letter-spacing:.1em;margin-bottom:10px;font-weight:600}
+.dlg p{font-size:13px;color:var(--mut);margin-bottom:24px}
+.dlg .row{display:flex;justify-content:flex-end;gap:10px}
+.dlg button{padding:7px 20px;border:1px solid var(--hair2);font-size:13px}
+.dlg .ok{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+
+.reveal{opacity:0;transform:translateY(14px);filter:blur(5px);
+  transition:opacity .9s var(--ease),transform .9s var(--ease),filter .9s var(--ease)}
+.reveal.in{opacity:1;transform:none;filter:none}
+
+@media (max-width:960px){main{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+  .reveal{opacity:1;transform:none;filter:none}
+}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="fRough" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="3" seed="11" result="t"/>
+      <feDisplacementMap in="SourceGraphic" in2="t" scale="2.6"/>
+    </filter>
+    <filter id="fGrain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.55" numOctaves="3" seed="7" result="n"/>
+      <feColorMatrix in="n" type="matrix"
+        values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1.7 -0.25"/>
+    </filter>
+    <mask id="mGrain"><rect width="60" height="60" fill="black" filter="url(#fGrain)"/></mask>
+  </defs>
+</svg>
+
+<header>
+  <div class="brand">消息快传<small>QUICK FILE RELAY · 局域网</small></div>
+  <div class="hright">
+    <button id="shareBtn">直达分享</button>
+    <div class="userwrap">
+      <button class="userbtn" id="userBtn">qy ▾</button>
+      <div class="menu" id="userMenu" hidden>
+        <button data-u="用户">用户</button>
+        <button data-u="同事">同事</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- 线 = 磁盘容量 · 日 = 今日活跃度（高度=速率） · 轨迹=今天的山脊 -->
+<div class="horizon" id="horizon">
+  <div class="hlab">日与线 · 线为磁盘 · 日为今日活跃</div>
+  <div class="hnow mono" id="hNow"></div>
+  <svg id="trail" viewBox="0 0 1000 150" preserveAspectRatio="none">
+    <polyline id="trailPath" fill="none" stroke="rgba(25,24,23,.26)" stroke-width="1" vector-effect="non-scaling-stroke"/>
+  </svg>
+  <div class="hline"></div>
+  <div class="hused" id="hUsed"></div>
+  <div id="tick"></div><div id="tickLab" class="mono"></div>
+  <div id="gnomon"></div>
+  <div id="sun"><div id="sunTime" class="mono"></div></div>
+  <div class="hticks mono"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>
+</div>
+
+<main>
+  <section class="reveal">
+    <div class="sec-head"><span class="lab">剪切板 · Clipboard</span><span class="meta mono" id="clipMeta"></span></div>
+    <div class="sheet-wrap">
+      <div class="clip"><i class="h1"></i><i class="h2"></i><i class="cbody"></i></div>
+      <div class="sheet" id="sheet">
+        <textarea id="clipArea" spellcheck="false"></textarea>
+        <div class="sheet-actions">
+          <button class="primary" id="saveBtn">保存</button>
+          <button id="refreshBtn">刷新</button>
+          <button id="clearBtn">清空</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="reveal">
+    <div class="drop" id="drop">把文件拖到这里 · 或点击选择<div class="sub">单文件 ≤ 30 GB · 多文件自动排队 · 空间不足在上传前拦截</div></div>
+    <input type="file" id="fileInput" hidden multiple>
+
+    <div style="margin-top:26px">
+      <div class="sec-head"><span class="lab">传输中 · In flight</span>
+        <span class="speed mono"><b id="speedNum">0.0</b>MB/s</span></div>
+      <div id="queueList"></div>
+    </div>
+
+    <div class="lib">
+      <div class="sec-head"><span class="lab">文件库 · Library</span><span class="meta mono" id="libMeta"></span></div>
+      <div id="fileList"></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>日与线 · 纯静态设计稿 · 数据为本地模拟</span>
+  <span>一眼读两件事 · 多满 · 多忙</span>
+</footer>
+
+<div id="toast"></div>
+<div id="scrim" hidden><div class="dlg">
+  <h3 id="dlgTitle"></h3><p id="dlgText"></p>
+  <div class="row"><button id="dlgNo">取消</button><button class="ok" id="dlgYes">确认</button></div>
+</div></div>
+
+<script>
+'use strict';
+const $=s=>document.querySelector(s);
+const GB=1073741824,MB=1048576;
+const STATIC=new URLSearchParams(location.search).has('static');
+
+/* ---------------- 数据 ---------------- */
+function hex(n){let s='';for(let i=0;i<n;i++)s+='0123456789abcdef'[Math.random()*16|0];return s}
+const DATA={
+  qy:{
+    clip:'周会结论（周三 10:00）\n\n1. 上传改裸 body 后吞吐 2.9 倍，千兆网实测 112.6 MB/s\n2. merge 前校验分片序号 0..N-1，缺片直接 400 并清分片\n3. 下迭代做磁盘水位预检，空间不足在上传前拦截\n\n—— 直接编辑这段文字，点「保存」试试。',
+    clipTime:'15:20',
+    files:[
+      {name:'产品发布会-final.mp4',size:4.68*GB,date:'3 天前',sha:hex(64)},
+      {name:'ubuntu-24.04.1-live-server.iso',size:2.61*GB,date:'3 天前',sha:hex(64)},
+      {name:'设计稿-交付-v3.zip',size:96.4*MB,date:'昨天',sha:hex(64)},
+      {name:'Q3-预算汇总.xlsx',size:3.1*MB,date:'昨天',sha:hex(64)},
+      {name:'合同扫描件.pdf',size:8.7*MB,date:'上周',sha:hex(64)},
+      {name:'素材-海边封面.png',size:12.2*MB,date:'上周',sha:hex(64)}
+    ]
+  },
+  同事:{
+    clip:'同事的剪切板：\n\n打印机驱动在这里下载，装完记得重启。',
+    clipTime:'11:02',
+    files:[
+      {name:'打印机驱动-2026.zip',size:48.2*MB,date:'2 天前',sha:hex(64)},
+      {name:'报销单-9月.pdf',size:1.2*MB,date:'上周',sha:hex(64)}
+    ]
+  }
+};
+let cur='qy';
+const disk={total:985*GB,used:615*GB};
+let queue=[],uploading=false,qid=0;
+
+/* ---------------- 工具 ---------------- */
+function fmt(b){return b>=GB?(b/GB).toFixed(2)+' GB':(b/MB).toFixed(1)+' MB'}
+function hhmm(d){d=d||new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
+let tt;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),2200)}
+
+/* ---------------- 朱砂印章 ---------------- */
+function sealSVG(ch,size){
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 60 60" aria-hidden="true">'+
+    '<g filter="url(#fRough)" mask="url(#mGrain)">'+
+    '<rect x="5" y="5" width="50" height="50" rx="7" fill="none" stroke="#B23B24" stroke-width="5.5"/>'+
+    '<text x="30" y="41" text-anchor="middle" font-size="29" fill="#B23B24" font-family="KaiTi,STKaiti,serif">'+ch+'</text>'+
+    '</g></svg>';
+}
+function stamp(el,ch,done){
+  if(!el){done&&done();return}
+  const r=el.getBoundingClientRect();
+  const box=document.createElement('div');
+  box.className='stamp';
+  box.style.left=(r.left+r.width/2)+'px';
+  box.style.top=(r.top+r.height/2)+'px';
+  box.innerHTML=sealSVG(ch,64);
+  document.body.appendChild(box);
+  setTimeout(()=>{box.classList.add('out');
+    setTimeout(()=>{box.remove();done&&done()},420);
+  },720);
+}
+
+/* ---------------- 日与线 ---------------- */
+const H=150,SUN_MIN=8,SUN_MAX=96;
+let act=0.06,trail=[];
+function timeFrac(d){d=d||new Date();return (d.getHours()*3600+d.getMinutes()*60+d.getSeconds())/86400}
+function initTrail(){
+  trail=[];const now=Date.now();
+  for(let m=-480;m<=0;m+=8){
+    let a=0.05+0.025*Math.sin(m/55)+0.015*Math.sin(m/13);
+    if(m>-46&&m<-18)a=0.62;      /* 傍晚刚传过一批 */
+    if(m>-250&&m<-226)a=0.4;     /* 上午一次 */
+    trail.push({t:now+m*60000,a:Math.max(.04,a)});
+  }
+}
+function renderHorizon(){
+  const now=new Date();
+  $('#hNow').textContent=hhmm(now)+' · 活跃 '+(act*100|0)+'%';
+  const frac=timeFrac(now);
+  const bottom=SUN_MIN+act*(SUN_MAX-SUN_MIN);
+  const sun=$('#sun');
+  sun.style.left=(frac*100)+'%';
+  sun.style.bottom=bottom+'px';
+  $('#sunTime').textContent='';
+  const g=$('#gnomon');
+  g.style.left=(frac*100)+'%';
+  g.style.height=bottom+'px';
+  /* 山脊轨迹 */
+  const pts=trail.map(p=>{
+    const x=timeFrac(new Date(p.t))*1000;
+    const y=H-(SUN_MIN+p.a*(SUN_MAX-SUN_MIN));
+    return x.toFixed(1)+','+y.toFixed(1);
+  });
+  pts.push((frac*1000).toFixed(1)+','+(H-bottom).toFixed(1));
+  $('#trailPath').setAttribute('points',pts.join(' '));
+  /* 磁盘线 */
+  const up=Math.min(100,disk.used/disk.total*100);
+  $('#hUsed').style.width=up+'%';
+  $('#tick').style.left=up+'%';
+  const lab=$('#tickLab');
+  lab.style.left=up+'%';
+  lab.textContent='已用 '+up.toFixed(0)+'% · '+fmt(disk.used)+' / '+fmt(disk.total);
+}
+setInterval(()=>{
+  const target=uploading?Math.min(1,parseFloat($('#speedNum').textContent)/112.6):0.06;
+  act+=(target-act)*0.18;
+  trail.push({t:Date.now(),a:act});
+  if(trail.length>90)trail.shift();
+  renderHorizon();
+},600);
+
+/* ---------------- 渲染 ---------------- */
+function renderClip(){
+  const u=DATA[cur];
+  $('#clipArea').value=u.clip;
+  $('#clipMeta').textContent=u.clip.length+' 字 · 保存于 '+u.clipTime;
+}
+function renderLib(){
+  const fs=DATA[cur].files;
+  $('#libMeta').textContent=fs.length+' 个文件 · '+fmt(fs.reduce((a,f)=>a+f.size,0));
+  $('#fileList').innerHTML=fs.map((f,i)=>
+    '<div class="frow" data-i="'+i+'"><div><div class="fname">'+
+      (f.trace?'<span class="trace" title="已完成">'+sealSVG(f.trace,17)+'</span>':'')+
+      f.name+'</div>'+
+      '<div class="fmeta mono">SHA-256 '+f.sha.slice(0,16)+'… · '+f.date+' · '+fmt(f.size)+'</div></div>'+
+      '<div class="fops"><button data-act="dl">下载</button><button data-act="del" class="del">删除</button></div></div>'
+  ).join('')||'<div class="meta" style="padding:20px 2px">文件库为空</div>';
+}
+function renderQueue(){
+  $('#queueList').innerHTML=queue.length?queue.map(q=>
+    '<div class="qrow" id="q-'+q.id+'"><div class="qtop"><span>'+q.name+'</span>'+
+    '<span class="qpct mono">0%</span></div>'+
+    '<div class="qbar"><i></i></div></div>').join('')
+    :'<div class="q-empty">队列空闲 · 拖入文件继续</div>';
+}
+
+/* ---------------- 上传引擎 ---------------- */
+function enqueue(items){
+  items.forEach(it=>{
+    if(it.size>30*GB){stamp($('#drop'),'拒');toast('超过 30 GB 上限，已拦截');return}
+    if(disk.used+sumQueue()+it.size>disk.total){stamp($('#drop'),'拒');toast('磁盘空间不足，上传前拦截');return}
+    queue.push(Object.assign({id:++qid},it));
+  });
+  renderQueue();pump();
+}
+function sumQueue(){return queue.reduce((a,q)=>a+q.size,0)}
+function pump(){if(uploading||!queue.length)return;uploading=true;runItem(queue[0])}
+function runItem(item){
+  const dur=Math.min(6000,Math.max(2400,item.size/MB*40));
+  const t0=performance.now();
+  const j=setInterval(()=>{
+    $('#speedNum').textContent=(112.6+(Math.random()*4-2)).toFixed(1);
+  },500);
+  (function tick(now){
+    const row=$('#q-'+item.id);
+    const p=Math.min(1,(now-t0)/dur);
+    if(row){row.querySelector('.qbar i').style.transform='scaleX('+p+')';
+      row.querySelector('.qpct').textContent=Math.round(p*100)+'%';}
+    if(p<1)requestAnimationFrame(tick);
+    else{clearInterval(j);$('#speedNum').textContent='0.0';finishItem(item);}
+  })(t0);
+}
+function finishItem(item){
+  const row=$('#q-'+item.id);
+  if(!row){next();return}
+  stamp(row,'传',()=>{
+    queue=queue.filter(q=>q.id!==item.id);
+    DATA[cur].files.unshift({name:item.name,size:item.size,date:'刚刚',sha:hex(64),trace:'传'});
+    disk.used+=item.size;
+    renderQueue();renderLib();renderHorizon();
+    next();
+  });
+  function next(){
+    if(queue.length)runItem(queue[0]);
+    else uploading=false;
+  }
+}
+
+/* ---------------- 剪切板 ---------------- */
+$('#saveBtn').addEventListener('click',()=>{
+  DATA[cur].clip=$('#clipArea').value;
+  DATA[cur].clipTime=hhmm();
+  renderClip();stamp($('#sheet'),'存');toast('已保存剪切板');
+});
+$('#refreshBtn').addEventListener('click',()=>{renderClip();toast('已从服务器刷新')});
+$('#clearBtn').addEventListener('click',()=>{
+  confirmBox('清空剪切板','当前文本将被删除，局域网另一端也会收到清空。','清空',()=>{
+    DATA[cur].clip='';DATA[cur].clipTime=hhmm();renderClip();
+    stamp($('#sheet'),'删');toast('已清空');
+  });
+});
+
+/* ---------------- 文件库操作 ---------------- */
+$('#fileList').addEventListener('click',e=>{
+  const btn=e.target.closest('button');if(!btn)return;
+  const row=btn.closest('.frow'),i=+row.dataset.i,f=DATA[cur].files[i];
+  if(btn.dataset.act==='dl'){toast('演示稿：'+f.name+' 交给浏览器下载');return}
+  confirmBox('删除文件','「'+f.name+'」将从磁盘移除，不可恢复。','删除',()=>{
+    stamp(row,'删',()=>{
+      row.classList.add('out');
+      setTimeout(()=>{
+        DATA[cur].files.splice(i,1);disk.used=Math.max(0,disk.used-f.size);
+        renderLib();renderHorizon();
+      },480);
+    });
+  });
+});
+
+/* ---------------- 拖拽 / 选择 ---------------- */
+const drop=$('#drop');
+drop.addEventListener('click',()=>$('#fileInput').click());
+drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('hot')});
+drop.addEventListener('dragleave',()=>drop.classList.remove('hot'));
+drop.addEventListener('drop',e=>{
+  e.preventDefault();drop.classList.remove('hot');
+  enqueue([...e.dataTransfer.files].map(f=>({name:f.name,size:f.size})));
+});
+$('#fileInput').addEventListener('change',e=>{
+  enqueue([...e.target.files].map(f=>({name:f.name,size:f.size})));e.target.value='';
+});
+
+/* ---------------- 用户 / 分享 ---------------- */
+$('#userBtn').addEventListener('click',e=>{e.stopPropagation();$('#userMenu').hidden=!$('#userMenu').hidden});
+document.addEventListener('click',()=>$('#userMenu').hidden=true);
+$('#userMenu').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-u]');if(!b)return;
+  cur=b.dataset.u;$('#userBtn').textContent=cur+' ▾';
+  renderClip();renderLib();toast('已切换到用户 '+cur);
+});
+$('#shareBtn').addEventListener('click',()=>toast('演示稿：直达链接与二维码为示意'));
+
+/* ---------------- 确认框 ---------------- */
+function confirmBox(title,text,okLabel,onOk){
+  $('#dlgTitle').textContent=title;$('#dlgText').textContent=text;$('#dlgYes').textContent=okLabel;
+  $('#scrim').hidden=false;
+  $('#dlgYes').onclick=()=>{$('#scrim').hidden=true;onOk()};
+  $('#dlgNo').onclick=()=>$('#scrim').hidden=true;
+}
+
+/* ---------------- 入场 & 自动演示 ---------------- */
+initTrail();renderClip();renderLib();renderQueue();renderHorizon();
+if(STATIC){document.querySelectorAll('.reveal').forEach(el=>el.classList.add('in'))}
+else{
+  const io=new IntersectionObserver(es=>es.forEach(e=>{
+    if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}
+  }),{threshold:.12});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+  setTimeout(()=>enqueue([
+    {name:'产品宣传片-4K.mp4',size:1.83*GB},
+    {name:'素材包-拍摄花絮.zip',size:96.4*MB},
+    {name:'会议纪要-0918.pdf',size:3.4*MB}
+  ]),1400);
+}
+</script>
+</body>
+</html>

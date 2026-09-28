@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preflight</title>
+    <style id="theme-vars">
+/* ============================================================
+   QFS · 睡莲池（暮色版）— 莫奈印象派色板
+   取自暮色画作：深靛池水、暮光金、睡莲玫粉、薰衣草倒影、奶油月光
+   ============================================================ */
+
+:root {
+    /* ---- 语义层（head 契约映射所需） ---- */
+    --qfs-background: #0f232b;          /* 页面底色：暮色深池 */
+    --qfs-foreground: #efe6d4;          /* 奶油月光文字 */
+    --qfs-card: #15303b;                /* 卡片：深池青 */
+    --qfs-card-foreground: #efe6d4;
+    --qfs-popover: #1a3943;
+    --qfs-popover-foreground: #efe6d4;
+    --qfs-primary: #e7c184;             /* 暮光金：唯一主色 */
+    --qfs-primary-foreground: #21313a;
+    --qfs-muted: #28464f;
+    --qfs-muted-foreground: #a7b8b6;
+    --qfs-border: #33525d;
+    --qfs-input: #3c5a65;
+    --qfs-ring: #e7c184;
+    --qfs-destructive: #e08ba0;         /* 删除：暮色玫粉，仅语义状态 */
+
+    --qfs-radius-sm: 4px;               /* 画廊感小圆角 */
+    --qfs-radius-md: 8px;
+    --qfs-radius-lg: 16px;
+
+    /* ---- 印象派辅助色（画作同源，仅装饰/数据点缀） ---- */
+    --pond-deep: #0d2027;
+    --pond-mid: #2f5f6b;
+    --lily-sage: #86bb9d;
+    --water-rose: #e18aa1;
+    --water-lavender: #b5ade0;
+    --dusk-cream: #f3e6cd;
+    --gold-glint: #f2cf8f;
+    --ink-soft: rgba(239, 230, 212, .72);
+    --ink-faint: rgba(239, 230, 212, .48);
+    --paper-translucent: rgba(17, 38, 47, .72);
+    --paper-translucent-strong: rgba(22, 47, 56, .88);
+    --hairline: rgba(240, 228, 205, .14);
+
+    /* ---- 字体 ---- */
+    --qfs-font-serif: Georgia, "Times New Roman", "Songti SC", "STSong", "SimSun", serif;
+    --qfs-font-sans: "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    --qfs-font-mono: Consolas, "Cascadia Code", "Courier New", monospace;
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--qfs-background);
+    --color-foreground: var(--qfs-foreground);
+    --color-card: var(--qfs-card);
+    --color-card-foreground: var(--qfs-card-foreground);
+    --color-popover: var(--qfs-popover);
+    --color-popover-foreground: var(--qfs-popover-foreground);
+    --color-primary: var(--qfs-primary);
+    --color-primary-foreground: var(--qfs-primary-foreground);
+    --color-muted: var(--qfs-muted);
+    --color-muted-foreground: var(--qfs-muted-foreground);
+    --color-destructive: var(--qfs-destructive);
+    --color-border: var(--qfs-border);
+    --color-input: var(--qfs-input);
+    --color-ring: var(--qfs-ring);
+    --radius-sm: var(--qfs-radius-sm);
+    --radius-md: var(--qfs-radius-md);
+    --radius-lg: var(--qfs-radius-lg);
+  }
+  @layer base {
+    body { background: var(--qfs-background); color: var(--qfs-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style id="semantic-token-fallback">
+      .bg-background { background-color: var(--qfs-background); }
+      .text-background { color: var(--qfs-background); }
+      .border-background { border-color: var(--qfs-background); }
+      .ring-background { --tw-ring-color: var(--qfs-background); }
+      .bg-foreground { background-color: var(--qfs-foreground); }
+      .text-foreground { color: var(--qfs-foreground); }
+      .border-foreground { border-color: var(--qfs-foreground); }
+      .ring-foreground { --tw-ring-color: var(--qfs-foreground); }
+      .bg-card { background-color: var(--qfs-card); }
+      .text-card { color: var(--qfs-card); }
+      .border-card { border-color: var(--qfs-card); }
+      .ring-card { --tw-ring-color: var(--qfs-card); }
+      .bg-card-foreground { background-color: var(--qfs-card-foreground); }
+      .text-card-foreground { color: var(--qfs-card-foreground); }
+      .border-card-foreground { border-color: var(--qfs-card-foreground); }
+      .ring-card-foreground { --tw-ring-color: var(--qfs-card-foreground); }
+      .bg-popover { background-color: var(--qfs-popover); }
+      .text-popover { color: var(--qfs-popover); }
+      .border-popover { border-color: var(--qfs-popover); }
+      .ring-popover { --tw-ring-color: var(--qfs-popover); }
+      .bg-popover-foreground { background-color: var(--qfs-popover-foreground); }
+      .text-popover-foreground { color: var(--qfs-popover-foreground); }
+      .border-popover-foreground { border-color: var(--qfs-popover-foreground); }
+      .ring-popover-foreground { --tw-ring-color: var(--qfs-popover-foreground); }
+      .bg-primary { background-color: var(--qfs-primary); }
+      .text-primary { color: var(--qfs-primary); }
+      .border-primary { border-color: var(--qfs-primary); }
+      .ring-primary { --tw-ring-color: var(--qfs-primary); }
+      .bg-primary-foreground { background-color: var(--qfs-primary-foreground); }
+      .text-primary-foreground { color: var(--qfs-primary-foreground); }
+      .border-primary-foreground { border-color: var(--qfs-primary-foreground); }
+      .ring-primary-foreground { --tw-ring-color: var(--qfs-primary-foreground); }
+      .bg-muted { background-color: var(--qfs-muted); }
+      .text-muted { color: var(--qfs-muted); }
+      .border-muted { border-color: var(--qfs-muted); }
+      .ring-muted { --tw-ring-color: var(--qfs-muted); }
+      .bg-muted-foreground { background-color: var(--qfs-muted-foreground); }
+      .text-muted-foreground { color: var(--qfs-muted-foreground); }
+      .border-muted-foreground { border-color: var(--qfs-muted-foreground); }
+      .ring-muted-foreground { --tw-ring-color: var(--qfs-muted-foreground); }
+      .bg-destructive { background-color: var(--qfs-destructive); }
+      .text-destructive { color: var(--qfs-destructive); }
+      .border-destructive { border-color: var(--qfs-destructive); }
+      .ring-destructive { --tw-ring-color: var(--qfs-destructive); }
+      .bg-border { background-color: var(--qfs-border); }
+      .text-border { color: var(--qfs-border); }
+      .border-border { border-color: var(--qfs-border); }
+      .ring-border { --tw-ring-color: var(--qfs-border); }
+      .bg-input { background-color: var(--qfs-input); }
+      .text-input { color: var(--qfs-input); }
+      .border-input { border-color: var(--qfs-input); }
+      .ring-input { --tw-ring-color: var(--qfs-input); }
+      .bg-ring { background-color: var(--qfs-ring); }
+      .text-ring { color: var(--qfs-ring); }
+      .border-ring { border-color: var(--qfs-ring); }
+      .ring-ring { --tw-ring-color: var(--qfs-ring); }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+</head>
+<body class="min-h-screen font-sans antialiased">
+    <main>
+    </main>
+    <script>lucide.createIcons();</script>
+</body>
+</html>
