@@ -78,7 +78,7 @@ for f in static/js/*.js; do node --check "$f" || echo "FAIL $f"; done
 - 分片上传协议（前端↔后端必须一致）：分片 = 裸 body POST `/api/upload/chunk?username=<u>&filename=<原文件名>`（filename 仅进日志与分片目录的 `meta.json`，绝不参与拼路径；请求头只允许 latin-1 所以中文名走 query），元数据在 `X-File-Id` / `X-Chunk-Index` 请求头；首片落盘记 INFO「上传开始」，"只有开始没有合并完成"= 中断签名；合并 POST `/api/upload/merge` 必带 `total_chunks`，后端校验分片序号 0..N-1 齐全，缺片 400 并清分片；`merge_chunks` 只认 `chunk_*`（目录里还有 meta.json）。**断点续传**：file_id 由 `FNV-1a(名|大小|lastModified)` 派生（同文件恒同 id），`GET /api/upload/status` 返回已收分片 `[{index,size}]`，前端只复用大小分毫不差的片（截断片自动重传），续传窗口即 sweep 的 24h
 - **username 只能走 query/body，绝不能放请求头**（HTTP 头仅 latin-1，中文用户名会炸）
 - 重名处理统一走 `exclusive_path()` + `open('xb')` 独占创建，绝不覆盖已有文件
-- 哈希计算全在后台，请求线程永不整读文件：merge 顺带算 + 启动对账 + 常驻 `hash-worker` 线程（`/api/files` 每次 listdir 时把无有效记录的文件搭便车入队；`/api/file/hash` 无记录时入队并返回 `computing: true`，前端每 3s 轮询到出值为止）
+- 哈希计算全在后台，请求线程永不整读文件：merge 顺带算 + 启动对账 + 常驻 `hash-worker` 线程（`/api/files` 每次 listdir 时把无有效记录的文件搭便车入队；`/api/file/hash` 无记录时入队并返回 `computing: true`，前端每 3s 轮询到出值为止、拿到值顺手回写列表那一行——行文字不再停在渲染时的快照）
 - 下载：≤1GB 前端分片并行（内存约束，勿改回整文件驻留）；>1GB 走 `/api/download` 交给浏览器下载管理器（阈值 `NATIVE_DL_LIMIT`），其 ETag/Range 是断点续传依赖，勿动
 - `safe_filename` / `normalize_username` 是所有入口的路径安全防线，新接口必须接入
 - 留言板：`GET/POST /api/board`（username 仍走 query/body），全员一块板、`BOARD_VISIBLE = 5` 只取最近 5 条，更早的留在 `messages.db` 不删；INSERT 用 `_board_lock` 串行化，`GET ?after=<latest_id>` 命中最新返回 `unchanged: true`；删除走 `POST /api/board/delete`，`delete_message()` 在 `_board_lock` 里比对 `author == username`，不匹配 403、不存在 404（用户名是自选的，这条只是"界面上删自己的"，不是安全边界）；前端删完调 `reload()` 而不是 `load()`——删中间那条时 `latest_id` 不变，带 `after` 的请求会被判成"没变化"；留言文本与设备名只进 `textContent`（设备名过 `normalize_device`：压平空白、去控制字符、限长 24），长留言靠 `.clip-text.collapsed` 折到 10 行，`fitClamps()` 量过 `scrollHeight` 才决定显不显「展开」

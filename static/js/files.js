@@ -60,6 +60,19 @@ const PROG_SKELETON = `
         <div class="fp-meta"></div>
     </div></div>`;
 
+/** 行内校验码按钮的两态；渲染时与后台算完后回写共用 */
+function setHashBtn(btn, sha256) {
+    if (sha256) {
+        btn.textContent = `SHA-256: ${sha256}`;
+        btn.title = `SHA-256: ${sha256}\n点击查看完整校验码与命令行下载`;
+        btn.classList.remove('fresh');
+    } else {
+        btn.textContent = '校验码未记录，点击计算';
+        btn.title = '点击让服务端计算 SHA-256（大文件需数分钟）';
+        btn.classList.add('fresh');
+    }
+}
+
 /** 生成一行；文件名只进 data-* 与 textContent，不拼进 HTML */
 export function makeRow({ name, size, mtime, sha256 }) {
     const cell = document.createElement('div');
@@ -90,16 +103,20 @@ export function makeRow({ name, size, mtime, sha256 }) {
     const hashBtn = document.createElement('button');
     hashBtn.type = 'button';
     hashBtn.className = 'fhash';
-    if (sha256) {
-        hashBtn.textContent = `SHA-256: ${sha256}`;
-        hashBtn.title = `SHA-256: ${sha256}\n点击查看完整校验码与命令行下载`;
-    } else {
-        hashBtn.textContent = '校验码未记录，点击计算';
-        hashBtn.title = '点击让服务端计算 SHA-256（大文件需数分钟）';
-        hashBtn.classList.add('fresh');
-    }
+    setHashBtn(hashBtn, sha256);
     sub.appendChild(hashBtn);
     return cell;
+}
+
+/** 后台算完的校验码回写到对应行（文件名比对 dataset，不拼选择器） */
+function updateRowHash(filename, sha256) {
+    if (!sha256) return;
+    const cells = listEl.querySelectorAll('.fcell');
+    for (const cell of cells) {
+        if (cell.dataset.filename !== filename) continue;
+        setHashBtn(cell.querySelector('.fhash'), sha256);
+        return;
+    }
 }
 
 /* ---------- 列表 ---------- */
@@ -181,6 +198,8 @@ function openHashModal(filename, trigger) {
                         setTimeout(fetchHash, 3000);
                         return;
                     }
+                    // 列表行停在"校验码未记录"是渲染时的快照，这里拿到值顺手回写
+                    updateRowHash(filename, info.sha256);
                     valueInput.value = info.sha256;
                     valueInput.placeholder = '';
                     valueInput.focus();
