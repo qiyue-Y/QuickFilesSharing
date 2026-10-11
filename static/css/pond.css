@@ -3,7 +3,8 @@
    ============================================================ */
 
 /* ---------- 背景层 ---------- */
-.bg-layer { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+/* height 用 vh 钉死：移动端布局视口随地址栏收起/弹出伸缩，inset:0 会让 cover 背景跟着重缩放 */
+.bg-layer { position: fixed; inset: 0; height: 100vh; z-index: 0; pointer-events: none; overflow: hidden; }
 .bg-layer > img {
   position: absolute; inset: 0; width: 100%; height: 100%;
   object-fit: cover;
@@ -158,5 +159,6 @@
 @media (max-width: 980px) {
   .hero { grid-template-columns: minmax(0,1fr); }
   .title-block { order: 1; }
-  .gallery { order: 2; justify-self: start; }
+  /* 竖排后画廊把正文顶出首屏（背景本就是同一幅池面），移动端去掉 */
+  .gallery { display: none; }
 }

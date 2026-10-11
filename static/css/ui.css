@@ -38,6 +38,8 @@ html::-webkit-scrollbar { display: none; }
 
 .hud {
   display: flex; align-items: center; flex-wrap: wrap; gap: 12px;
+  /* user-wrap 已移出 hud 成顶栏直接子元素，auto 外距把链接组顶回右侧 */
+  margin-left: auto;
   font-size: 12px; color: var(--ink-soft); font-variant-numeric: tabular-nums;
 }
 .hud-sep { width: 1px; height: 11px; background: var(--hairline); }
@@ -550,8 +552,16 @@ details.verify-help[open] summary { color: var(--gold-glint); margin-bottom: 6px
   .fp-meta { margin-left: 0; }
 }
 @media (max-width: 560px) {
-  .topbar { flex-direction: column; align-items: flex-start; }
-  .user-pop { right: auto; left: 0; }
+  /* 顶栏两行：第一行品牌（左）+ 头像（右），第二行放 IP/二维码/磁盘；
+     头像贴右缘后弹层改回 right:0 朝左展开，left:0 会戳出屏外 */
+  .topbar {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) auto;
+    grid-template-areas: "brand avatar" "hud hud";
+  }
+  .topbar .brand { grid-area: brand; }
+  .topbar .hud { grid-area: hud; margin-left: 0; }
+  .topbar .user-wrap { grid-area: avatar; }
   .panel { padding: 20px; }
   .fp-line { gap: 10px; }
   .verify-row { grid-template-columns: minmax(0,1fr); }

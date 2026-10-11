@@ -8,7 +8,8 @@
 
 #login-gate.login-stage {
   position: fixed; inset: 0; z-index: 45;
-  height: 100dvh;
+  /* svh 恒等于"地址栏可见"的小视口：dvh 会随地址栏伸缩，矮屏滚动时整个登录层跟着跳 */
+  height: 100svh;
   isolation: isolate;
   overflow: hidden;
   color: var(--qfs-foreground);
