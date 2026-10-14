@@ -80,6 +80,9 @@ for f in static/js/*.js; do node --check "$f" || echo "FAIL $f"; done
 - **README 顶部那行"当前版本"跟着 tag 一起改**（漏了就是文档漂移，见「归档方法」的同类教训）。
 - **GitHub Release 不等于 tag**：Release 是网页层产物，要单独建；只推 tag 时仓库只显示标签不显示发布说明。
 - **脱敏必须在"进入 commit 之前"做，不是之后**。`git log --all -S<字符串>` 能捞出任何曾经提交过的内容——改工作区文件清不掉历史。转公开前的必查项：局域网 IP、本机绝对路径（家目录 / 项目路径）、真实用户名、邮箱、`files/` 与 `clipboards/` 内容。已经进历史的用重写历史处理，别指望"改一个新提交"就够了。
+- **重写历史后要立刻设本仓库身份**：`git config --local user.name/user.email`。全局配置仍是旧邮箱，重写后我新提交的两笔又把旧邮箱带了回去（2026-10-14 实测：`git log --all` 58 条里揪出 1 条漏网）。本仓库现用 `qyy <GitHub noreply 邮箱>`。
+- **验收脱敏别用 `git log -S`**：它会把"写进去又删掉"的 diff 也算命中，虚报。改用两条：遍历 `master` 各提交做 `git grep`（查文件内容）+ `git cat-file --batch-all-objects --batch` 全量搜（查对象库），再用 `git fsck --no-reflogs --unreachable` 区分"可达"与"仅悬空残留"。
+- **归档文字里不要保留刚清除的旧值字面量**：既等于重新泄露，又会让脱敏回调在重放时咬到自己（2026-10-14 真实姓名与家目录路径形态各踩过一次）。
 
 ## 架构与协议要点
 
