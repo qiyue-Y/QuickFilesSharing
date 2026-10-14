@@ -79,6 +79,7 @@ for f in static/js/*.js; do node --check "$f" || echo "FAIL $f"; done
 - **发版步骤**：① 确认工作区干净、当天归档已写；② 改 `pyproject.toml` 的 version；③ commit（message 形如 `Bump version to X.Y for release`）；④ `git tag -a X.Y -m "<这版做了什么>"`；⑤ `git push && git push --tags`。
 - **重写历史的两件连带后果**：`git filter-repo` 会**摘掉 `origin`**（推之前要重新 `git remote add`），并且**让归档里所有提交号引用作废**（本仓库已因此改用"只记日期"，见「归档方法」）。重写区间要用备份 bundle 按提交信息比对来数，别用减法算——我算错过两次。
 - **README 顶部那行"当前版本"跟着 tag 一起改**（漏了就是文档漂移，见「归档方法」的同类教训）。
+- **已经推过的泄露，force-push 清不掉**：ref 移走后 GitHub 仍按完整 SHA 提供旧对象（实测能从旧树取回文件）。唯一可靠做法是**删除仓库后重建、再首推**；验证要用陌生人视角：全新 `git clone` 搜旧值 + 无凭据访问旧提交 URL（应 404）。判"是否失效"要问"能不能真取回内容"，别匹配 404 字样——GitHub 对不存在的提交返回 422。
 - **GitHub Release 不等于 tag**：Release 是网页层产物，要单独建；只推 tag 时仓库只显示标签不显示发布说明。
 - **脱敏必须在"进入 commit 之前"做，不是之后**。`git log --all -S<字符串>` 能捞出任何曾经提交过的内容——改工作区文件清不掉历史。转公开前的必查项：局域网 IP、本机绝对路径（家目录 / 项目路径）、真实用户名、邮箱、`files/` 与 `clipboards/` 内容。已经进历史的用重写历史处理，别指望"改一个新提交"就够了。
 - **重写历史后要立刻设本仓库身份**：`git config --local user.name/user.email`。全局配置仍是旧邮箱，重写后我新提交的两笔又把旧邮箱带了回去（2026-10-14 实测：`git log --all` 58 条里揪出 1 条漏网）。本仓库现用 `qyy <GitHub noreply 邮箱>`。
