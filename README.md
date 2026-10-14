@@ -4,6 +4,8 @@
 
 当前版本：**1.3**（版本号同时记在 git tag 与 `pyproject.toml`，规矩见 `AGENTS.md`「版本与发布」；许可证 MIT，见 `LICENSE`）
 
+![登录页：睡莲池背景 + 拱框展品 + 宣纸登录卡](assets/login.jpg)
+
 ## 快速开始
 
 1. 首次安装依赖（任选其一）：
@@ -26,6 +28,7 @@ Linux 服务器：`gunicorn -c gunicorn.conf.py http_messages_share:app`
 
 | 路径 | 用途 |
 |---|---|
+| `assets/` | README 用的界面截图（不参与运行时） |
 | `clipboards/messages.db` | 留言板（SQLite，WAL；开着库时同目录会有 `-wal` / `-shm` 附属文件）。旧的 `clipboards/<用户名>.txt` 已不再被读取，内容一次性导入后改名 `.migrated` 留在原地 |
 | `files/<用户名>/` | 上传的文件；`.chunks/` 为分片临时目录（每轮上传含 `meta.json` 记录文件名与开始时间，24h 自动清扫）；`.hashes.json` 为校验码记录 |
 | `logs/app.log` | 运行日志（20MB × 5 滚动） |
