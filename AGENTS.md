@@ -73,6 +73,14 @@ for f in static/js/*.js; do node --check "$f" || echo "FAIL $f"; done
 
 验证/调试时**不要占用 5000**（可能有用户实例在跑），临时实例用 `python -c "from http_messages_share import app; app.run(port=5001)"` 方式起在别的端口。
 
+## 版本与发布
+
+- **版本号有两处，必须同步**：git tag（`1.0` / `1.1` / `1.2` …）与 `pyproject.toml` 的 `version`（写成 `X.Y.Z`）。历史上两者从没对齐过（tag 已到 1.2，`pyproject.toml` 停在 0.1.0），2026-10-14 起每次发版一起改。
+- **发版步骤**：① 确认工作区干净、当天归档已写；② 改 `pyproject.toml` 的 version；③ commit（message 形如 `Bump version to X.Y for release`）；④ `git tag -a X.Y -m "<这版做了什么>"`；⑤ `git push && git push --tags`。
+- **README 顶部那行"当前版本"跟着 tag 一起改**（漏了就是文档漂移，见「归档方法」的同类教训）。
+- **GitHub Release 不等于 tag**：Release 是网页层产物，要单独建；只推 tag 时仓库只显示标签不显示发布说明。
+- **脱敏必须在"进入 commit 之前"做，不是之后**。`git log --all -S<字符串>` 能捞出任何曾经提交过的内容——改工作区文件清不掉历史。转公开前的必查项：局域网 IP、本机绝对路径（家目录 / 项目路径）、真实用户名、邮箱、`files/` 与 `clipboards/` 内容。已经进历史的用重写历史处理，别指望"改一个新提交"就够了。
+
 ## 架构与协议要点
 
 - 分片上传协议（前端↔后端必须一致）：分片 = 裸 body POST `/api/upload/chunk?username=<u>&filename=<原文件名>`（filename 仅进日志与分片目录的 `meta.json`，绝不参与拼路径；请求头只允许 latin-1 所以中文名走 query），元数据在 `X-File-Id` / `X-Chunk-Index` 请求头；首片落盘记 INFO「上传开始」，"只有开始没有合并完成"= 中断签名；合并 POST `/api/upload/merge` 必带 `total_chunks`，后端校验分片序号 0..N-1 齐全，缺片 400 并清分片；`merge_chunks` 只认 `chunk_*`（目录里还有 meta.json）。**断点续传**：file_id 由 `FNV-1a(名|大小|lastModified)` 派生（同文件恒同 id），`GET /api/upload/status` 返回已收分片 `[{index,size}]`，前端只复用大小分毫不差的片（截断片自动重传），续传窗口即 sweep 的 24h
