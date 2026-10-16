@@ -33,7 +33,7 @@ Linux 服务器：`gunicorn -c gunicorn.conf.py http_messages_share:app`
 | 路径 | 用途 |
 |---|---|
 | `assets/` | README 用的界面截图（不参与运行时） |
-| `clipboards/messages.db` | 留言板（SQLite，WAL；开着库时同目录会有 `-wal` / `-shm` 附属文件）。旧的 `clipboards/<用户名>.txt` 已不再被读取，内容一次性导入后改名 `.migrated` 留在原地 |
+| `clipboards/messages.db` | 留言板（SQLite，WAL；开着库时同目录会有 `-wal` / `-shm` 附属文件）。旧的 `clipboards/<用户名>.txt` 已不再被读取，改名 `.migrated` 留在原地（旧文本备份；其内容不在当前数据库里，仅此一份） |
 | `files/<用户名>/` | 上传的文件；`.chunks/` 为分片临时目录（每轮上传含 `meta.json` 记录文件名与开始时间，24h 自动清扫）；`.hashes.json` 为校验码记录 |
 | `logs/app.log` | 运行日志（20MB × 5 滚动） |
 | `review-issues.md` | 问题清单：状态总表 + 已完结表 + 待实施正文（问题 / 解决方案 / 重要性 / 影响评估） |

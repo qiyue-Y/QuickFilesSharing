@@ -8,10 +8,6 @@ import { api } from './api.js';
 let active = null;
 const listeners = [];
 
-export function isActive() {
-    return active !== null;
-}
-
 /** 抢闸门，已被占用返回 null */
 export function acquire(kind, username) {
     if (active) return null;

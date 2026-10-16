@@ -60,13 +60,8 @@
     /* ---- 语义层 ---- */
     --qfs-background: #0f232b;          /* 页面底色：暮色深池 */
     --qfs-foreground: rgb(var(--rgb-cream));      /* 奶油月光文字 */
-    --qfs-card: #15303b;                /* 卡片：深池青 */
-    --qfs-card-foreground: rgb(var(--rgb-cream));
-    --qfs-popover: #1a3943;
-    --qfs-popover-foreground: rgb(var(--rgb-cream));
     --qfs-primary: #e7c184;             /* 暮光金：唯一主色 */
     --qfs-primary-foreground: #21313a;
-    --qfs-muted: #28464f;
     --qfs-muted-foreground: #a7b8b6;
     --qfs-border: #33525d;
     --qfs-input: #3c5a65;
